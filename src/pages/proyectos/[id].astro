@@ -1,0 +1,88 @@
+---
+// Los corchetes en el nombre del archivo [id].astro crean una RUTA DINÁMICA:
+// un solo archivo genera muchas páginas (/proyectos/tienda-online, /proyectos/gestor-tareas...).
+import type { GetStaticPaths } from "astro";
+import { Image } from "astro:assets";
+import { render } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Tag from "../../components/Tag.astro";
+import { getProyectos, formatearFecha } from "../../lib/proyectos";
+
+// getStaticPaths le dice a Astro QUÉ páginas generar en el build.
+// Devolvemos una entrada por proyecto:
+//   params → rellena el [id] de la URL
+//   props  → datos que recibe la página (Astro.props)
+export const getStaticPaths = (async () => {
+	const proyectos = await getProyectos();
+	return proyectos.map((proyecto) => ({
+		params: { id: proyecto.id },
+		props: { proyecto },
+	}));
+}) satisfies GetStaticPaths;
+
+const { proyecto } = Astro.props;
+const { titulo, resumen, fecha, tecnologias, portada, repo, demo } = proyecto.data;
+
+// render() convierte el cuerpo Markdown en un componente <Content />
+const { Content } = await render(proyecto);
+---
+
+<BaseLayout title={titulo} description={resumen}>
+	<a href="/proyectos" class="text-sm text-tenue transition-colors hover:text-texto">
+		← Todos los proyectos
+	</a>
+
+	<header class="mt-6">
+		<p class="text-sm text-tenue">{formatearFecha(fecha)}</p>
+		<h1 class="mt-1 text-4xl font-bold tracking-tight">{titulo}</h1>
+		<p class="mt-3 text-lg text-tenue">{resumen}</p>
+
+		<div class="mt-4 flex flex-wrap gap-2">
+			{tecnologias.map((tec) => <Tag texto={tec} />)}
+		</div>
+
+		<!-- Solo mostramos cada botón si el proyecto tiene ese link -->
+		{
+			(repo || demo) && (
+				<div class="mt-6 flex gap-3">
+					{demo && (
+						<a
+							href={demo}
+							target="_blank"
+							rel="noopener"
+							class="rounded-lg bg-acento px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+						>
+							Ver demo ↗
+						</a>
+					)}
+					{repo && (
+						<a
+							href={repo}
+							target="_blank"
+							rel="noopener"
+							class="rounded-lg border border-borde px-4 py-2 text-sm font-medium transition hover:border-acento/60"
+						>
+							Código ↗
+						</a>
+					)}
+				</div>
+			)
+		}
+	</header>
+
+	{
+		portada && (
+			<Image
+				src={portada}
+				alt={`Portada de ${titulo}`}
+				width={1200}
+				class="mt-10 aspect-video w-full rounded-xl border border-borde object-cover"
+			/>
+		)
+	}
+
+	<!-- "prose" (plugin typography) da estilo automático al HTML que sale del Markdown -->
+	<article class="prose prose-invert mt-10 max-w-none prose-a:text-acento">
+		<Content />
+	</article>
+</BaseLayout>

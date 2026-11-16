@@ -1,0 +1,24 @@
+/* Carga Tailwind: genera SOLO las clases que realmente usas en tus archivos */
+@import "tailwindcss";
+
+/* Plugin que da estilos al HTML generado desde Markdown (clase "prose") */
+@plugin "@tailwindcss/typography";
+
+/*
+  @theme define "design tokens": variables que Tailwind convierte en clases.
+  Por ejemplo --color-acento genera bg-acento, text-acento, border-acento...
+  Si mañana quieres otro color de marca, lo cambias SOLO aquí.
+*/
+@theme {
+  --color-fondo: #0b0b10;
+  --color-superficie: #15151d;
+  --color-borde: #2a2a36;
+  --color-texto: #e6e6eb;
+  --color-tenue: #9a9aab;
+  --color-acento: #8b5cf6; /* violeta, en homenaje al rebeccapurple del principio */
+}
+
+/* Estilos base de toda la página */
+body {
+  @apply bg-fondo text-texto antialiased;
+}

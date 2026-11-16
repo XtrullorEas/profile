@@ -1,0 +1,8 @@
+# Lo que NO se copia al contenedor (se regenera dentro, o no hace falta)
+node_modules
+dist
+.astro
+.git
+.env
+.env.*
+*.log

@@ -1,0 +1,36 @@
+---
+// Importar el CSS aquí hace que llegue a TODAS las páginas que usan este layout
+import "../styles/global.css";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+
+interface Props {
+	title: string;
+	description?: string; // el "?" la hace opcional
+}
+
+// Valor por defecto si la página no pasa description
+const { title, description = "Portfolio de Elías, desarrollador web." } = Astro.props;
+---
+
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width" />
+		<title>{title} | Elías</title>
+		<meta name="description" content={description} />
+	</head>
+	<!-- min-h-screen + flex-col: el footer queda abajo aunque haya poco contenido -->
+	<body class="flex min-h-screen flex-col">
+		<Header />
+
+		<!-- mx-auto + max-w-3xl: centrado y con ancho máximo. px-4: margen lateral en móvil -->
+		<main class="mx-auto w-full max-w-3xl flex-1 px-4 py-12">
+			<!-- 👇 Aquí se inyecta el contenido que la página pone DENTRO de <BaseLayout> -->
+			<slot />
+		</main>
+
+		<Footer nombre="Elías" />
+	</body>
+</html>

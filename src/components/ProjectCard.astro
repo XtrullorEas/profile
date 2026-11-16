@@ -1,0 +1,47 @@
+---
+// <Image> es el componente de Astro que optimiza imágenes:
+// las convierte a formatos modernos (webp), les pone ancho/alto (evita saltos
+// de layout) y las sirve con el tamaño justo.
+import { Image } from "astro:assets";
+// CollectionEntry<"proyectos"> = el tipo exacto de un proyecto, generado
+// automáticamente desde el esquema. Si cambias el esquema, el tipo cambia solo.
+import type { CollectionEntry } from "astro:content";
+import Tag from "./Tag.astro";
+import { formatearFecha } from "../lib/proyectos";
+
+interface Props {
+	proyecto: CollectionEntry<"proyectos">;
+}
+
+const { proyecto } = Astro.props;
+const { titulo, resumen, fecha, tecnologias, portada } = proyecto.data;
+---
+
+<!-- group: permite que los hijos reaccionen al hover de la tarjeta (group-hover:) -->
+<a
+	href={`/proyectos/${proyecto.id}`}
+	class="group block overflow-hidden rounded-xl border border-borde bg-superficie transition hover:-translate-y-1 hover:border-acento/60"
+>
+	{
+		portada && (
+			<Image
+				src={portada}
+				alt={`Portada de ${titulo}`}
+				width={600}
+				class="aspect-video w-full object-cover"
+			/>
+		)
+	}
+
+	<div class="p-5">
+		<p class="text-xs text-tenue">{formatearFecha(fecha)}</p>
+		<h3 class="mt-1 text-lg font-semibold transition-colors group-hover:text-acento">
+			{titulo}
+		</h3>
+		<p class="mt-2 text-sm text-tenue">{resumen}</p>
+
+		<div class="mt-4 flex flex-wrap gap-2">
+			{tecnologias.map((tec) => <Tag texto={tec} />)}
+		</div>
+	</div>
+</a>

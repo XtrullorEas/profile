@@ -1,0 +1,21 @@
+---
+// Este archivo está en pages/proyectos/index.astro → URL: /proyectos
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import ProjectCard from "../../components/ProjectCard.astro";
+import { getProyectos } from "../../lib/proyectos";
+
+// "await" directamente en el frontmatter: se ejecuta durante el build
+const proyectos = await getProyectos();
+---
+
+<BaseLayout title="Proyectos" description="Proyectos en los que he trabajado.">
+	<h1 class="text-4xl font-bold tracking-tight">Proyectos</h1>
+	<p class="mt-3 text-lg text-tenue">
+		{proyectos.length} proyectos en los que he trabajado.
+	</p>
+
+	<!-- grid: 1 columna en móvil, 2 a partir de 640px (sm:) -->
+	<div class="mt-10 grid gap-6 sm:grid-cols-2">
+		{proyectos.map((proyecto) => <ProjectCard proyecto={proyecto} />)}
+	</div>
+</BaseLayout>

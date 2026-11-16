@@ -1,0 +1,40 @@
+---
+// Astro.url es la URL de la página actual. La usamos para marcar el link activo.
+const pathname = Astro.url.pathname;
+
+const links = [
+	{ href: "/", label: "Inicio" },
+	{ href: "/proyectos", label: "Proyectos" },
+	{ href: "/sobre-mi", label: "Sobre mí" },
+];
+
+// "Proyectos" debe quedar activo también dentro de /proyectos/tienda-online
+const esActivo = (href: string) =>
+	href === "/" ? pathname === "/" : pathname.startsWith(href);
+---
+
+<!-- sticky top-0: el header queda pegado arriba al hacer scroll.
+     backdrop-blur: desenfoca lo que pasa por detrás (efecto "vidrio") -->
+<header class="sticky top-0 z-10 border-b border-borde bg-fondo/80 backdrop-blur">
+	<nav class="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
+		<a href="/" class="font-bold tracking-tight">
+			Elías<span class="text-acento">.</span>
+		</a>
+
+		<div class="flex gap-6 text-sm">
+			{
+				links.map((link) => (
+					<a
+						href={link.href}
+						class:list={[
+							"transition-colors hover:text-texto",
+							esActivo(link.href) ? "text-texto" : "text-tenue",
+						]}
+					>
+						{link.label}
+					</a>
+				))
+			}
+		</div>
+	</nav>
+</header>

@@ -1,0 +1,15 @@
+---
+// Componente pequeño y reutilizable: una "pastilla" con texto.
+// Lo usaremos para tecnologías, y en la Fase 3 para las etiquetas de cada proyecto.
+interface Props {
+	texto: string;
+}
+
+const { texto } = Astro.props;
+---
+
+<span
+	class="inline-block rounded-full border border-borde bg-superficie px-3 py-1 text-xs text-tenue"
+>
+	{texto}
+</span>

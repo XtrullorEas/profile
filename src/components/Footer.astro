@@ -1,0 +1,14 @@
+---
+// Las "props" son los parámetros que recibe un componente.
+// Con una interface de TypeScript, el editor te avisa si te falta alguna.
+interface Props {
+	nombre: string;
+}
+
+const { nombre } = Astro.props;
+const anio = new Date().getFullYear();
+---
+
+<footer class="border-t border-borde py-6 text-center text-sm text-tenue">
+	© {anio} {nombre}. Todos los derechos reservados.
+</footer>
