@@ -9,6 +9,17 @@ import keystatic from '@keystatic/astro';
 
 // https://astro.build/config
 export default defineConfig({
+  // URL pública del sitio (la usan sitemap, canonical, Astro.site...)
+  site: 'https://portfolio.moloeas.com',
+
+  // En Dokploy, Traefik recibe el HTTPS y le pasa la petición al contenedor por HTTP,
+  // indicando el dominio/protocolo original en cabeceras X-Forwarded-*.
+  // Astro solo confía en esas cabeceras para los dominios listados aquí.
+  // Sin esto, Astro creería que la URL es http:// y el login de GitHub de Keystatic fallaría.
+  security: {
+    allowedDomains: [{ hostname: 'portfolio.moloeas.com', protocol: 'https' }],
+  },
+
   server: {
       // Por defecto Astro solo escucha en 127.0.0.1 (localhost).
       // `host: true` lo hace escuchar en todas las interfaces (0.0.0.0),
