@@ -1,0 +1,69 @@
+---
+// Editar un proyecto: /admin/proyectos/3
+// Mismo formulario que "nuevo", pero con los datos de la BD y otra Action.
+export const prerender = false;
+
+import { eq } from "drizzle-orm";
+import { actions, isInputError } from "astro:actions";
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import ProyectoForm from "../../../components/admin/ProyectoForm.astro";
+import { db } from "../../../lib/db";
+import { proyectos } from "../../../lib/db/schema";
+import { valoresDesdeProyecto, valoresDesdeFormData } from "../../../lib/form-proyecto";
+
+// El parámetro de la URL siempre es texto: "3" → 3
+const id = Number(Astro.params.id);
+if (!Number.isInteger(id)) return Astro.rewrite("/404");
+
+const resultado = Astro.getActionResult(actions.actualizarProyecto);
+
+// Guardado OK → volvemos a esta misma página (GET) con un aviso
+if (resultado && !resultado.error) {
+	return Astro.redirect(`/admin/proyectos/${id}?ok=1`);
+}
+
+// Leemos el proyecto DESPUÉS de la Action, así vemos los datos ya actualizados
+const [proyecto] = await db.select().from(proyectos).where(eq(proyectos.id, id));
+if (!proyecto) return Astro.rewrite("/404");
+
+const valores = resultado?.error
+	? valoresDesdeFormData(await Astro.request.formData(), proyecto.portada)
+	: valoresDesdeProyecto(proyecto);
+
+const errores = isInputError(resultado?.error) ? resultado.error.fields : {};
+const errorGeneral = resultado?.error && !isInputError(resultado.error) ? resultado.error.message : undefined;
+const guardado = Astro.url.searchParams.has("ok");
+---
+
+<AdminLayout title={`Editar: ${proyecto.titulo}`}>
+	<a href="/admin" class="text-sm text-tenue hover:text-texto">← Volver</a>
+	<div class="mt-2 mb-8 flex flex-wrap items-center justify-between gap-4">
+		<h1 class="text-3xl font-bold">{proyecto.titulo}</h1>
+		{
+			proyecto.borrador ? (
+				<span class="rounded-full border border-borde px-3 py-1 text-sm text-tenue">Borrador: no visible en el sitio</span>
+			) : (
+				<a href={`/proyectos/${proyecto.slug}`} target="_blank" class="text-sm text-acento hover:underline">
+					Ver en el sitio ↗
+				</a>
+			)
+		}
+	</div>
+
+	{
+		guardado && (
+			<p class="mb-6 rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+				✓ Cambios guardados.
+			</p>
+		)
+	}
+
+	<ProyectoForm
+		action={actions.actualizarProyecto}
+		id={proyecto.id}
+		valores={valores}
+		errores={errores}
+		errorGeneral={errorGeneral}
+		textoBoton="Guardar cambios"
+	/>
+</AdminLayout>

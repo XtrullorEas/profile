@@ -15,11 +15,6 @@ RUN npm ci
 # Ahora el resto del código
 COPY . .
 
-# Las variables PUBLIC_* se "hornean" en el build (las usa el navegador),
-# por eso deben llegar como build args, no solo como variables de entorno.
-ARG PUBLIC_KEYSTATIC_GITHUB_APP_SLUG
-ENV PUBLIC_KEYSTATIC_GITHUB_APP_SLUG=$PUBLIC_KEYSTATIC_GITHUB_APP_SLUG
-
 RUN npm run build
 # Quitamos las dependencias de desarrollo para que la imagen final pese menos
 RUN npm prune --omit=dev
@@ -39,5 +34,5 @@ COPY --from=build /app/dist ./dist
 EXPOSE 4321
 
 # El adapter Node genera un servidor listo para usar.
-# Sirve los HTML estáticos de dist/client y atiende /keystatic.
+# Sirve los HTML estáticos de dist/client y las rutas de servidor (admin, etc.).
 CMD ["node", "./dist/server/entry.mjs"]

@@ -1,0 +1,128 @@
+---
+// Panel principal: estadísticas + lista de TODOS los proyectos (también borradores).
+// No comprobamos el login aquí: el middleware ya lo hizo.
+export const prerender = false;
+
+import { desc } from "drizzle-orm";
+import { actions } from "astro:actions";
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { db } from "../../lib/db";
+import { proyectos } from "../../lib/db/schema";
+import { formatearFecha } from "../../lib/proyectos";
+
+// Si se envió el formulario de borrar, la Action ya corrió: leemos su resultado
+const borrado = Astro.getActionResult(actions.eliminarProyecto);
+if (borrado && !borrado.error) {
+	return Astro.redirect("/admin?ok=eliminado");
+}
+
+const { usuario } = Astro.locals;
+const lista = await db.select().from(proyectos).orderBy(desc(proyectos.fecha));
+
+// Estadísticas calculadas sobre la lista que ya tenemos (sin más consultas)
+const publicados = lista.filter((p) => !p.borrador).length;
+const tarjetas = [
+	{ label: "Proyectos", valor: lista.length },
+	{ label: "Publicados", valor: publicados },
+	{ label: "Borradores", valor: lista.length - publicados },
+];
+
+// Aviso tras crear/borrar: /admin?ok=creado
+const mensajes: Record<string, string> = {
+	creado: "✓ Proyecto creado.",
+	eliminado: "✓ Proyecto eliminado.",
+};
+const aviso = mensajes[Astro.url.searchParams.get("ok") ?? ""];
+---
+
+<AdminLayout title="Panel">
+	<div class="flex flex-wrap items-center justify-between gap-4">
+		<div>
+			<h1 class="text-3xl font-bold">Hola, {usuario} 👋</h1>
+			<p class="mt-1 text-tenue">Gestiona los proyectos de tu portfolio.</p>
+		</div>
+		<a href="/admin/proyectos/nuevo" class="rounded-lg bg-acento px-4 py-2.5 font-medium text-white transition hover:opacity-90">
+			+ Nuevo proyecto
+		</a>
+	</div>
+
+	{aviso && <p class="mt-6 rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-300">{aviso}</p>}
+	{
+		borrado?.error && (
+			<p class="mt-6 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">{borrado.error.message}</p>
+		)
+	}
+
+	<div class="mt-8 grid gap-4 sm:grid-cols-3">
+		{
+			tarjetas.map((t) => (
+				<div class="rounded-xl border border-borde bg-superficie p-5">
+					<p class="text-sm text-tenue">{t.label}</p>
+					<p class="mt-1 text-3xl font-bold">{t.valor}</p>
+				</div>
+			))
+		}
+	</div>
+
+	<h2 class="mt-12 mb-4 text-xl font-semibold">Proyectos</h2>
+
+	{
+		lista.length === 0 ? (
+			<p class="rounded-xl border border-dashed border-borde p-10 text-center text-tenue">
+				Todavía no hay proyectos.{" "}
+				<a href="/admin/proyectos/nuevo" class="text-acento hover:underline">
+					Crea el primero
+				</a>
+				.
+			</p>
+		) : (
+			<ul class="divide-y divide-borde overflow-hidden rounded-xl border border-borde">
+				{lista.map((p) => (
+					<li class="flex items-center gap-4 bg-superficie p-4">
+						{p.portada ? (
+							<img src={p.portada} alt="" class="aspect-video w-24 shrink-0 rounded-md object-cover" />
+						) : (
+							<div class="aspect-video w-24 shrink-0 rounded-md border border-dashed border-borde" />
+						)}
+
+						<div class="min-w-0 flex-1">
+							<a href={`/admin/proyectos/${p.id}`} class="font-medium hover:text-acento">
+								{p.titulo}
+							</a>
+							<p class="mt-0.5 truncate text-sm text-tenue">{p.resumen}</p>
+							<div class="mt-1.5 flex flex-wrap gap-2 text-xs">
+								<span class="text-tenue">{formatearFecha(p.fecha)}</span>
+								{p.borrador ? (
+									<span class="rounded-full bg-yellow-500/15 px-2 text-yellow-300">Borrador</span>
+								) : (
+									<span class="rounded-full bg-green-500/15 px-2 text-green-300">Publicado</span>
+								)}
+								{p.destacado && <span class="rounded-full bg-acento/20 px-2 text-violet-300">★ Destacado</span>}
+							</div>
+						</div>
+
+						<div class="flex shrink-0 items-center gap-2 text-sm">
+							<a href={`/admin/proyectos/${p.id}`} class="rounded-md border border-borde px-3 py-1.5 hover:border-acento/60">
+								Editar
+							</a>
+							{/* Borrar = POST a la Action. data-confirmar lo usa el script de abajo */}
+							<form method="post" action={actions.eliminarProyecto} data-confirmar={`¿Borrar "${p.titulo}"? No se puede deshacer.`}>
+								<input type="hidden" name="id" value={p.id} />
+								<button class="rounded-md border border-red-500/40 px-3 py-1.5 text-red-300 hover:bg-red-500/10">Borrar</button>
+							</form>
+						</div>
+					</li>
+				))}
+			</ul>
+		)
+	}
+</AdminLayout>
+
+<script>
+	// Pide confirmación antes de borrar. Si cancelas, preventDefault() detiene el envío.
+	document.querySelectorAll<HTMLFormElement>("form[data-confirmar]").forEach((form) => {
+		form.addEventListener("submit", (e) => {
+			if (!confirm(form.dataset.confirmar)) e.preventDefault();
+		});
+	});
+</script>

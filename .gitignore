@@ -22,3 +22,6 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# imágenes subidas desde el admin (viven en el servidor, no en git)
+uploads/

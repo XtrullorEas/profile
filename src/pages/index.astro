@@ -1,11 +1,14 @@
 ---
+// La portada muestra los destacados de la BD → también bajo demanda
+export const prerender = false;
+
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Tag from "../components/Tag.astro";
 import ProjectCard from "../components/ProjectCard.astro";
-import { getProyectos } from "../lib/proyectos";
+import { getDestacados } from "../lib/proyectos";
 
-// Reutilizamos la misma función y filtramos solo los destacados
-const destacados = (await getProyectos()).filter((p) => p.data.destacado);
+// El filtro ahora lo hace Postgres (WHERE destacado = true), no JavaScript
+const destacados = await getDestacados();
 
 const nombre = "Elías";
 const rol = "Desarrollador web";

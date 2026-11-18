@@ -1,0 +1,235 @@
+---
+// Formulario de proyecto, usado por /admin/proyectos/nuevo y /admin/proyectos/[id].
+// Es HTML normal: funciona aunque el JavaScript esté desactivado.
+// Los <script> de abajo solo AÑADEN comodidades (slug automático, vista previa...).
+import type { ValoresForm } from "../../lib/form-proyecto";
+
+interface Props {
+	/** La Action a la que se envía, ej: actions.crearProyecto (Astro la convierte en "?_action=...") */
+	action: string;
+	valores: ValoresForm;
+	/** Errores por campo que devuelve Zod: { titulo: ["El título es obligatorio"] } */
+	errores?: Record<string, string[] | undefined>;
+	/** Error que no es de un campo concreto (slug repetido, imagen inválida...) */
+	errorGeneral?: string;
+	/** Solo al editar: el id viaja en un input oculto */
+	id?: number;
+	textoBoton: string;
+}
+
+const { action, valores: v, errores = {}, errorGeneral, id, textoBoton } = Astro.props;
+
+// Clases compartidas por todos los inputs (con borde rojo si el campo tiene error)
+const claseInput = (campo: string) => [
+	"mt-1 w-full rounded-lg border bg-superficie px-3 py-2 outline-none focus:border-acento",
+	errores[campo] ? "border-red-500/70" : "border-borde",
+];
+---
+
+<form method="post" action={action} enctype="multipart/form-data" class="space-y-6" novalidate>
+	{/* enctype multipart: obligatorio para poder enviar archivos */}
+	{id !== undefined && <input type="hidden" name="id" value={id} />}
+
+	{
+		(errorGeneral || Object.keys(errores).length > 0) && (
+			<p class="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+				{errorGeneral ?? "Revisa los campos marcados en rojo."}
+			</p>
+		)
+	}
+
+	<div class="grid gap-6 sm:grid-cols-2">
+		<label class="block">
+			<span class="text-sm text-tenue">Título *</span>
+			<input name="titulo" value={v.titulo} maxlength="120" class:list={claseInput("titulo")} />
+			{errores.titulo && <span class="mt-1 block text-sm text-red-300">{errores.titulo[0]}</span>}
+		</label>
+
+		<label class="block">
+			<span class="text-sm text-tenue">Slug (URL)</span>
+			<input
+				name="slug"
+				value={v.slug}
+				placeholder="se genera del título"
+				maxlength="120"
+				data-slug-auto={v.slug === "" ? "" : undefined}
+				class:list={claseInput("slug")}
+			/>
+			{
+				errores.slug ? (
+					<span class="mt-1 block text-sm text-red-300">{errores.slug[0]}</span>
+				) : (
+					<span class="mt-1 block text-xs text-tenue">/proyectos/<span data-slug-ejemplo>{v.slug || "..."}</span></span>
+				)
+			}
+		</label>
+	</div>
+
+	<label class="block">
+		<span class="text-sm text-tenue">Resumen * <span class="text-xs">(para la tarjeta, máx. 160)</span></span>
+		<input name="resumen" value={v.resumen} maxlength="160" class:list={claseInput("resumen")} />
+		{errores.resumen && <span class="mt-1 block text-sm text-red-300">{errores.resumen[0]}</span>}
+	</label>
+
+	<div class="grid gap-6 sm:grid-cols-2">
+		<label class="block">
+			<span class="text-sm text-tenue">Fecha *</span>
+			<input type="date" name="fecha" value={v.fecha} class:list={claseInput("fecha")} />
+			{errores.fecha && <span class="mt-1 block text-sm text-red-300">{errores.fecha[0]}</span>}
+		</label>
+
+		<label class="block">
+			<span class="text-sm text-tenue">Tecnologías <span class="text-xs">(separadas por comas)</span></span>
+			<input name="tecnologias" value={v.tecnologias} placeholder="HTML, CSS, JavaScript" class:list={claseInput("tecnologias")} />
+			{errores.tecnologias && <span class="mt-1 block text-sm text-red-300">{errores.tecnologias[0]}</span>}
+		</label>
+	</div>
+
+	<div class="grid gap-6 sm:grid-cols-2">
+		<label class="block">
+			<span class="text-sm text-tenue">Demo</span>
+			<input type="url" name="demo" value={v.demo} placeholder="https://..." class:list={claseInput("demo")} />
+			{errores.demo && <span class="mt-1 block text-sm text-red-300">{errores.demo[0]}</span>}
+		</label>
+
+		<label class="block">
+			<span class="text-sm text-tenue">Repositorio</span>
+			<input type="url" name="repo" value={v.repo} placeholder="https://github.com/..." class:list={claseInput("repo")} />
+			{errores.repo && <span class="mt-1 block text-sm text-red-300">{errores.repo[0]}</span>}
+		</label>
+	</div>
+
+	<!-- Portada -->
+	<fieldset class="rounded-xl border border-borde p-4">
+		<legend class="px-1 text-sm text-tenue">Portada</legend>
+		<div class="flex flex-col gap-4 sm:flex-row sm:items-start">
+			<img
+				src={v.portada ?? undefined}
+				alt=""
+				data-portada-preview
+				class:list={["aspect-video w-full rounded-lg border border-borde object-cover sm:w-56", !v.portada && "hidden"]}
+			/>
+			<div class="flex-1 space-y-3 text-sm">
+				<input
+					type="file"
+					name="portada"
+					accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+					class="block w-full text-tenue file:mr-3 file:rounded-md file:border-0 file:bg-acento file:px-3 file:py-1.5 file:text-white"
+				/>
+				<p class="text-xs text-tenue">JPG, PNG, WebP, AVIF o GIF, hasta 8 MB. Se convierte a WebP de 1600 px al guardar.</p>
+				{errores.portada && <p class="text-red-300">{errores.portada[0]}</p>}
+				{
+					v.portada && (
+						<label class="flex items-center gap-2">
+							<input type="checkbox" name="quitarPortada" class="accent-acento" />
+							Quitar la portada actual
+						</label>
+					)
+				}
+			</div>
+		</div>
+	</fieldset>
+
+	<!-- Contenido en Markdown, con pestañas Escribir / Vista previa -->
+	<div data-editor>
+		<div class="flex items-end justify-between">
+			<span class="text-sm text-tenue">Contenido <span class="text-xs">(Markdown)</span></span>
+			<div class="flex gap-1 text-sm">
+				<button type="button" data-pestana="escribir" class="rounded-t-md bg-superficie px-3 py-1">Escribir</button>
+				<button type="button" data-pestana="vista" class="rounded-t-md px-3 py-1 text-tenue">Vista previa</button>
+			</div>
+		</div>
+		<textarea
+			name="contenido"
+			rows="16"
+			placeholder={"## El reto\n\nCuenta de qué trata el proyecto, qué aprendiste...\n\n- Usa listas\n- **negritas**, [enlaces](https://...)"}
+			class="w-full rounded-lg rounded-tr-none border border-borde bg-superficie px-3 py-2 font-mono text-sm outline-none focus:border-acento"
+			>{v.contenido}</textarea
+		>
+		<div
+			data-vista
+			class="prose prose-invert hidden min-h-64 max-w-none rounded-lg rounded-tr-none border border-borde bg-superficie px-5 py-4"
+		>
+		</div>
+	</div>
+
+	<!-- Opciones -->
+	<div class="flex flex-wrap gap-6 text-sm">
+		<label class="flex items-center gap-2">
+			<input type="checkbox" name="borrador" checked={v.borrador} class="accent-acento" />
+			Borrador <span class="text-tenue">(no se ve en el sitio)</span>
+		</label>
+		<label class="flex items-center gap-2">
+			<input type="checkbox" name="destacado" checked={v.destacado} class="accent-acento" />
+			Destacado <span class="text-tenue">(aparece en la portada)</span>
+		</label>
+	</div>
+
+	<div class="flex items-center gap-4 border-t border-borde pt-6">
+		<button class="rounded-lg bg-acento px-5 py-2.5 font-medium text-white transition hover:opacity-90">{textoBoton}</button>
+		<a href="/admin" class="text-sm text-tenue hover:text-texto">Cancelar</a>
+	</div>
+</form>
+
+<script>
+	// Este <script> NO corre en el servidor: Astro lo empaqueta y lo manda al navegador.
+	// Puede importar módulos, incluso las Actions: actions.x() hace un fetch por debajo.
+	import { actions } from "astro:actions";
+
+	// --- 1. Slug automático mientras escribes el título (solo si el slug estaba vacío) ---
+	const titulo = document.querySelector<HTMLInputElement>('input[name="titulo"]')!;
+	const slug = document.querySelector<HTMLInputElement>('input[name="slug"]')!;
+	const ejemplo = document.querySelector("[data-slug-ejemplo]");
+
+	const slugificar = (t: string) =>
+		t
+			.normalize("NFD")
+			.replace(/[̀-ͯ]/g, "")
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "-")
+			.replace(/^-+|-+$/g, "");
+
+	titulo.addEventListener("input", () => {
+		if (slug.hasAttribute("data-slug-auto")) slug.value = slugificar(titulo.value);
+		if (ejemplo) ejemplo.textContent = slug.value || "...";
+	});
+	slug.addEventListener("input", () => {
+		slug.removeAttribute("data-slug-auto"); // lo escribiste a mano: ya no lo tocamos
+		if (ejemplo) ejemplo.textContent = slug.value || "...";
+	});
+
+	// --- 2. Previsualizar la imagen elegida antes de subirla ---
+	const archivo = document.querySelector<HTMLInputElement>('input[name="portada"]')!;
+	const preview = document.querySelector<HTMLImageElement>("[data-portada-preview]")!;
+	archivo.addEventListener("change", () => {
+		const elegido = archivo.files?.[0];
+		if (!elegido) return;
+		preview.src = URL.createObjectURL(elegido); // URL temporal al archivo local
+		preview.classList.remove("hidden");
+	});
+
+	// --- 3. Pestañas Escribir / Vista previa ---
+	const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="contenido"]')!;
+	const vista = document.querySelector<HTMLElement>("[data-vista]")!;
+	const pestanas = document.querySelectorAll<HTMLButtonElement>("[data-pestana]");
+
+	pestanas.forEach((boton) =>
+		boton.addEventListener("click", async () => {
+			const enVista = boton.dataset.pestana === "vista";
+			pestanas.forEach((b) => {
+				const activa = b === boton;
+				b.classList.toggle("bg-superficie", activa);
+				b.classList.toggle("text-tenue", !activa);
+			});
+			textarea.classList.toggle("hidden", enVista);
+			vista.classList.toggle("hidden", !enVista);
+			if (!enVista) return;
+
+			vista.textContent = "Cargando...";
+			// Llamamos a la Action desde el navegador. Devuelve { data, error }, nunca lanza.
+			const { data, error } = await actions.previsualizarMarkdown({ markdown: textarea.value });
+			if (error) vista.textContent = "No se pudo generar la vista previa: " + error.message;
+			else vista.innerHTML = data.html || '<p class="text-tenue">Nada que mostrar todavía.</p>';
+		}),
+	);
+</script>

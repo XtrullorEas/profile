@@ -1,0 +1,85 @@
+---
+// Página de login. La misma página MUESTRA el formulario (GET) y lo PROCESA (POST),
+// igual que harías en PHP con if ($_SERVER['REQUEST_METHOD'] === 'POST').
+export const prerender = false;
+
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { verificarCredenciales, minutosBloqueado, registrarFallo, limpiarFallos } from "../../lib/auth";
+
+let error = "";
+let usuarioEscrito = "";
+
+if (Astro.request.method === "POST") {
+	// IP del visitante, para el límite de intentos
+	const ip = Astro.clientAddress;
+	const bloqueo = minutosBloqueado(ip);
+
+	if (bloqueo > 0) {
+		error = `Demasiados intentos fallidos. Prueba de nuevo en ${bloqueo} min.`;
+	} else {
+		// Equivalente a $_POST['usuario'] y $_POST['password']
+		const datos = await Astro.request.formData();
+		usuarioEscrito = String(datos.get("usuario") ?? "").trim();
+		const password = String(datos.get("password") ?? "");
+
+		if (verificarCredenciales(usuarioEscrito, password)) {
+			limpiarFallos(ip);
+			// regenerate(): nuevo ID de sesión al loguearse. Evita "session fixation":
+			// que alguien te haga usar un ID de sesión que él ya conoce.
+			Astro.session?.regenerate();
+			Astro.session?.set("usuario", usuarioEscrito);
+			return Astro.redirect("/admin");
+		}
+
+		registrarFallo(ip);
+		// Mensaje genérico: no revelamos si falló el usuario o la contraseña
+		error = "Usuario o contraseña incorrectos.";
+	}
+}
+---
+
+<AdminLayout title="Iniciar sesión">
+	<div class="mx-auto mt-16 max-w-sm">
+		<h1 class="text-2xl font-bold">
+			Admin<span class="text-acento">.</span>
+		</h1>
+		<p class="mt-1 text-sm text-tenue">Inicia sesión para gestionar tus proyectos.</p>
+
+		{
+			error && (
+				<p class="mt-6 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+					{error}
+				</p>
+			)
+		}
+
+		<!-- Sin "action": el formulario se envía a esta misma URL (/admin/login) -->
+		<form method="post" class="mt-6 space-y-4">
+			<label class="block">
+				<span class="text-sm text-tenue">Usuario</span>
+				<input
+					name="usuario"
+					value={usuarioEscrito}
+					required
+					autocomplete="username"
+					class="mt-1 w-full rounded-lg border border-borde bg-superficie px-3 py-2 outline-none focus:border-acento"
+				/>
+			</label>
+			<label class="block">
+				<span class="text-sm text-tenue">Contraseña</span>
+				<input
+					name="password"
+					type="password"
+					required
+					autocomplete="current-password"
+					class="mt-1 w-full rounded-lg border border-borde bg-superficie px-3 py-2 outline-none focus:border-acento"
+				/>
+			</label>
+			<button
+				class="w-full rounded-lg bg-acento px-4 py-2.5 font-medium text-white transition hover:opacity-90"
+			>
+				Entrar
+			</button>
+		</form>
+	</div>
+</AdminLayout>

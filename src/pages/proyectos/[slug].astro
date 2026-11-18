@@ -1,30 +1,27 @@
 ---
-// Los corchetes en el nombre del archivo [id].astro crean una RUTA DINÁMICA:
-// un solo archivo genera muchas páginas (/proyectos/tienda-online, /proyectos/gestor-tareas...).
-import type { GetStaticPaths } from "astro";
-import { Image } from "astro:assets";
-import { render } from "astro:content";
+// RUTA DINÁMICA BAJO DEMANDA
+// Antes (Fase 3): getStaticPaths generaba un HTML por proyecto durante el build.
+// Ahora: no hay lista previa. En CADA visita, Astro toma el [slug] de la URL,
+// consulta la base de datos y genera la página en ese momento.
+export const prerender = false;
+
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import Tag from "../../components/Tag.astro";
-import { getProyectos, formatearFecha } from "../../lib/proyectos";
+import { getProyectoPorSlug, formatearFecha, markdownAHtml } from "../../lib/proyectos";
 
-// getStaticPaths le dice a Astro QUÉ páginas generar en el build.
-// Devolvemos una entrada por proyecto:
-//   params → rellena el [id] de la URL
-//   props  → datos que recibe la página (Astro.props)
-export const getStaticPaths = (async () => {
-	const proyectos = await getProyectos();
-	return proyectos.map((proyecto) => ({
-		params: { id: proyecto.id },
-		props: { proyecto },
-	}));
-}) satisfies GetStaticPaths;
+// Astro.params contiene los segmentos dinámicos de la URL:
+//   /proyectos/the-myoopy-bar  →  Astro.params.slug === "the-myoopy-bar"
+const { slug } = Astro.params;
+const proyecto = slug ? await getProyectoPorSlug(slug) : undefined;
 
-const { proyecto } = Astro.props;
-const { titulo, resumen, fecha, tecnologias, portada, repo, demo } = proyecto.data;
+// Si no existe (o es borrador), mostramos la página 404 con su código HTTP correcto.
+// rewrite() renderiza otra página SIN cambiar la URL del navegador.
+if (!proyecto) {
+	return Astro.rewrite("/404");
+}
 
-// render() convierte el cuerpo Markdown en un componente <Content />
-const { Content } = await render(proyecto);
+const { titulo, resumen, fecha, tecnologias, portada, repo, demo, contenido } = proyecto;
+const html = markdownAHtml(contenido);
 ---
 
 <BaseLayout title={titulo} description={resumen}>
@@ -72,17 +69,16 @@ const { Content } = await render(proyecto);
 
 	{
 		portada && (
-			<Image
+			<img
 				src={portada}
 				alt={`Portada de ${titulo}`}
-				width={1200}
 				class="mt-10 aspect-video w-full rounded-xl border border-borde object-cover"
 			/>
 		)
 	}
 
-	<!-- "prose" (plugin typography) da estilo automático al HTML que sale del Markdown -->
-	<article class="prose prose-invert mt-10 max-w-none prose-a:text-acento">
-		<Content />
-	</article>
+	<!-- set:html inserta HTML "crudo". Por defecto Astro ESCAPA todo lo que pones
+	     entre {llaves} (para evitar inyecciones); set:html es la forma explícita de
+	     decir "esto ya es HTML, confío en él". -->
+	<article class="prose prose-invert mt-10 max-w-none prose-a:text-acento" set:html={html} />
 </BaseLayout>

@@ -1,33 +1,32 @@
 ---
-// <Image> es el componente de Astro que optimiza imágenes:
-// las convierte a formatos modernos (webp), les pone ancho/alto (evita saltos
-// de layout) y las sirve con el tamaño justo.
-import { Image } from "astro:assets";
-// CollectionEntry<"proyectos"> = el tipo exacto de un proyecto, generado
-// automáticamente desde el esquema. Si cambias el esquema, el tipo cambia solo.
-import type { CollectionEntry } from "astro:content";
+// El tipo Proyecto sale directamente de la tabla (schema.ts).
+// Si añades una columna, este tipo la incluye solo.
+import type { Proyecto } from "../lib/db/schema";
 import Tag from "./Tag.astro";
 import { formatearFecha } from "../lib/proyectos";
 
 interface Props {
-	proyecto: CollectionEntry<"proyectos">;
+	proyecto: Proyecto;
 }
 
 const { proyecto } = Astro.props;
-const { titulo, resumen, fecha, tecnologias, portada } = proyecto.data;
+const { slug, titulo, resumen, fecha, tecnologias, portada } = proyecto;
 ---
 
 <!-- group: permite que los hijos reaccionen al hover de la tarjeta (group-hover:) -->
 <a
-	href={`/proyectos/${proyecto.id}`}
+	href={`/proyectos/${slug}`}
 	class="group block overflow-hidden rounded-xl border border-borde bg-superficie transition hover:-translate-y-1 hover:border-acento/60"
 >
 	{
+		// Las portadas ahora son archivos subidos desde el admin (Fase 4.5),
+		// por eso usamos <img> normal: <Image> de astro:assets optimiza en el build,
+		// y estas imágenes no existen en el build. Las optimizaremos al subirlas.
 		portada && (
-			<Image
+			<img
 				src={portada}
 				alt={`Portada de ${titulo}`}
-				width={600}
+				loading="lazy"
 				class="aspect-video w-full object-cover"
 			/>
 		)

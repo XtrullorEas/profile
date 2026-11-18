@@ -1,0 +1,55 @@
+---
+// Layout del panel: distinto al del sitio público (sin Header/Footer del portfolio).
+import "../styles/global.css";
+
+interface Props {
+	title: string;
+}
+
+const { title } = Astro.props;
+// El middleware dejó aquí el usuario logueado (undefined en la página de login)
+const { usuario } = Astro.locals;
+---
+
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="robots" content="noindex" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<title>{title} | Admin</title>
+	</head>
+	<body class="min-h-screen">
+		{
+			usuario && (
+				<header class="border-b border-borde bg-superficie">
+					<nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 text-sm">
+						<div class="flex items-center gap-6">
+							<a href="/admin" class="font-bold">
+								Admin<span class="text-acento">.</span>
+							</a>
+							<a href="/" target="_blank" class="text-tenue hover:text-texto">
+								Ver sitio ↗
+							</a>
+						</div>
+
+						<div class="flex items-center gap-4">
+							<span class="text-tenue">{usuario}</span>
+							{/* Cerrar sesión con POST (no un link GET): así ningún sitio externo
+							    puede cerrarte la sesión con una simple imagen o enlace */}
+							<form method="post" action="/admin/logout">
+								<button class="rounded-md border border-borde px-3 py-1.5 hover:border-acento/60">
+									Cerrar sesión
+								</button>
+							</form>
+						</div>
+					</nav>
+				</header>
+			)
+		}
+
+		<main class="mx-auto max-w-5xl px-4 py-10">
+			<slot />
+		</main>
+	</body>
+</html>

@@ -1,0 +1,39 @@
+---
+// Crear un proyecto.
+//
+// Flujo de una Action con formulario HTML:
+//   1. GET  /admin/proyectos/nuevo                        → formulario vacío
+//   2. POST /admin/proyectos/nuevo?_action=crearProyecto  → Astro ejecuta la Action
+//      ANTES de esta página, y aquí leemos el resultado con getActionResult()
+//   3a. Salió bien → redirect (patrón PRG: así F5 no vuelve a enviar el formulario)
+//   3b. Salió mal  → mostramos el mismo formulario con los errores y lo que escribiste
+export const prerender = false;
+
+import { actions, isInputError } from "astro:actions";
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import ProyectoForm from "../../../components/admin/ProyectoForm.astro";
+import { valoresVacios, valoresDesdeFormData } from "../../../lib/form-proyecto";
+
+const resultado = Astro.getActionResult(actions.crearProyecto);
+
+if (resultado && !resultado.error) {
+	return Astro.redirect(`/admin?ok=creado`);
+}
+
+let valores = valoresVacios();
+if (resultado?.error) {
+	// La Action leyó una COPIA del cuerpo de la petición: el original sigue disponible
+	valores = valoresDesdeFormData(await Astro.request.formData(), null);
+}
+
+// isInputError: ¿falló la validación de Zod? → errores por campo
+const errores = isInputError(resultado?.error) ? resultado.error.fields : {};
+const errorGeneral = resultado?.error && !isInputError(resultado.error) ? resultado.error.message : undefined;
+---
+
+<AdminLayout title="Nuevo proyecto">
+	<a href="/admin" class="text-sm text-tenue hover:text-texto">← Volver</a>
+	<h1 class="mt-2 mb-8 text-3xl font-bold">Nuevo proyecto</h1>
+
+	<ProyectoForm action={actions.crearProyecto} valores={valores} errores={errores} errorGeneral={errorGeneral} textoBoton="Crear proyecto" />
+</AdminLayout>

@@ -1,0 +1,24 @@
+---
+// src/pages/404.astro es especial: Astro la usa automáticamente para cualquier
+// URL que no exista, y también cuando hacemos Astro.rewrite("/404").
+//
+// prerender = false porque Astro NO permite hacer rewrite desde una página
+// bajo demanda ([slug].astro) hacia una página estática (ya convertida en HTML en el build).
+export const prerender = false;
+
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Página no encontrada">
+	<div class="py-20 text-center">
+		<p class="text-6xl font-bold text-acento">404</p>
+		<h1 class="mt-4 text-2xl font-semibold">Esta página no existe</h1>
+		<p class="mt-2 text-tenue">Puede que el enlace esté mal o que el proyecto ya no esté publicado.</p>
+		<a
+			href="/proyectos"
+			class="mt-8 inline-block rounded-lg bg-acento px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+		>
+			Ver proyectos
+		</a>
+	</div>
+</BaseLayout>
