@@ -14,7 +14,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../lib/db";
 import { proyectos, perfil, experiencia } from "../lib/db/schema";
 import { markdownAHtml } from "../lib/proyectos";
-import { guardarPortada, borrarPortada, TIPOS_PERMITIDOS, TAMANO_MAXIMO } from "../lib/uploads";
+import { guardarPortada, borrarPortada, guardarPdf, TIPOS_PERMITIDOS, TAMANO_MAXIMO, TAMANO_MAXIMO_PDF } from "../lib/uploads";
 
 // ---------- Seguridad ----------
 
@@ -204,6 +204,23 @@ async function procesarGaleria(archivos: File[], slug: string) {
 	return guardadas;
 }
 
+/** El CV: un PDF opcional (si no eliges archivo, el navegador manda uno vacío). */
+const pdfOpcional = z
+	.instanceof(File)
+	.optional()
+	.refine((f) => !f || f.size === 0 || f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"), "El CV tiene que ser un PDF")
+	.refine((f) => !f || f.size <= TAMANO_MAXIMO_PDF, "El PDF pesa más de 5 MB");
+
+/** Guarda el PDF (si hay). Si no es un PDF de verdad, error amable en vez de un 500. */
+async function procesarPdf(archivo: File | undefined, prefijo: string) {
+	if (!archivo || archivo.size === 0) return undefined;
+	try {
+		return await guardarPdf(archivo, prefijo);
+	} catch {
+		throw new ActionError({ code: "BAD_REQUEST", message: "El archivo del CV no es un PDF válido." });
+	}
+}
+
 /** Postgres responde con el código 23505 cuando se repite un valor UNIQUE (el slug). */
 function esSlugRepetido(error: unknown) {
 	const e = error as { code?: string; cause?: { code?: string } };
@@ -376,12 +393,24 @@ export const server = {
 			disponible: z.boolean(),
 			foto: imagenOpcional,
 			quitarFoto: z.boolean(),
+			cv: pdfOpcional,
+			quitarCv: z.boolean(),
+			cvEn: pdfOpcional,
+			quitarCvEn: z.boolean(),
 		}),
-		handler: async ({ foto: archivo, quitarFoto, ...datos }, context) => {
+		handler: async ({ foto: archivo, quitarFoto, cv: archivoCv, quitarCv, cvEn: archivoCvEn, quitarCvEn, ...datos }, context) => {
 			await exigirLogin(context);
 			const [actual] = await db.select().from(perfil).where(eq(perfil.id, 1));
 			const nueva = await procesarPortada(archivo, "foto");
 			const foto = nueva ?? (quitarFoto ? null : (actual?.foto ?? null));
+			// CV: el nuevo > ninguno (si marcaste "quitar") > el que había
+			const nuevoCv = await procesarPdf(archivoCv, "cv");
+			const nuevoCvEn = await procesarPdf(archivoCvEn, "cv-en").catch(async (e) => {
+				await borrarPortada(nuevoCv); // no dejar el CV en español huérfano
+				throw e;
+			});
+			const cv = nuevoCv ?? (quitarCv ? null : (actual?.cv ?? null));
+			const cvEn = nuevoCvEn ?? (quitarCvEn ? null : (actual?.cvEn ?? null));
 			const fila = {
 				...datos,
 				email: datos.email ?? null,
@@ -392,10 +421,15 @@ export const server = {
 				fraseEn: datos.fraseEn || null,
 				bioEn: datos.bioEn || null,
 				foto,
+				cv,
+				cvEn,
 			};
 			// "upsert": INSERT si no existe la fila 1, UPDATE si ya existe
 			await db.insert(perfil).values({ id: 1, ...fila }).onConflictDoUpdate({ target: perfil.id, set: fila });
+			// Los archivos viejos se borran solo cuando el guardado ya salió bien
 			if (actual?.foto && actual.foto !== foto) await borrarPortada(actual.foto);
+			if (actual?.cv && actual.cv !== cv) await borrarPortada(actual.cv);
+			if (actual?.cvEn && actual.cvEn !== cvEn) await borrarPortada(actual.cvEn);
 			return { ok: true };
 		},
 	}),

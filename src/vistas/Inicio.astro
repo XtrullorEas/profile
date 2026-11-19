@@ -43,6 +43,9 @@ const hobbies = traducido(idioma, perfil.hobbies, perfil.hobbiesEn);
 const mitad = Math.ceil(perfil.stack.length / 2);
 const cintas = [perfil.stack.slice(0, mitad), perfil.stack.slice(mitad)].filter((c) => c.length > 0);
 
+// El CV en el idioma de la página (si no subiste el inglés, el español)
+const cv = traducido(idioma, perfil.cv ?? "", perfil.cvEn) || null;
+
 // Enlaces de contacto: solo los que completaste en el perfil
 const contactos = [
 	perfil.email && { href: `mailto:${perfil.email}`, texto: perfil.email, icono: "lucide:mail" as const },
@@ -50,6 +53,9 @@ const contactos = [
 	perfil.whatsapp && { href: `https://wa.me/${perfil.whatsapp.replace(/\D/g, "")}`, texto: "WhatsApp", icono: "logos:whatsapp-monochrome-icon" as const },
 	perfil.github && { href: perfil.github, texto: "GitHub", icono: "lucide:github" as const },
 	perfil.linkedin && { href: perfil.linkedin, texto: "LinkedIn", icono: "lucide:linkedin" as const },
+	// El CV al final (así no pasa a ser el botón principal de "¿Hablamos?").
+	// "descarga": nombre con el que se guarda el archivo (atributo download)
+	cv && { href: cv, texto: t("inicio.cv"), icono: "lucide:file-down" as const, descarga: `CV - ${perfil.nombre}.pdf` },
 ].filter((c) => !!c);
 
 const seccion = "mx-auto max-w-5xl scroll-mt-24 px-4 py-24";
@@ -132,7 +138,7 @@ const seccion = "mx-auto max-w-5xl scroll-mt-24 px-4 py-24";
 				<div class="flex flex-wrap gap-3">
 					{
 						contactos.map((c) => (
-							<a href={c.href} target={c.href.startsWith("http") ? "_blank" : undefined} rel="noopener" class="inline-flex items-center gap-2 rounded-full border border-borde px-4 py-2 text-sm transition hover:border-texto">
+							<a href={c.href} target={c.href.startsWith("http") ? "_blank" : undefined} rel="noopener" download={"descarga" in c ? c.descarga : undefined} class="inline-flex items-center gap-2 rounded-full border border-borde px-4 py-2 text-sm transition hover:border-texto">
 								<Icono nombre={c.icono} class="size-4" colorDelTexto />
 								{c.texto}
 							</a>
@@ -206,6 +212,7 @@ const seccion = "mx-auto max-w-5xl scroll-mt-24 px-4 py-24";
 						href={c.href}
 						target={c.href.startsWith("http") ? "_blank" : undefined}
 						rel="noopener"
+						download={"descarga" in c ? c.descarga : undefined}
 						class:list={[
 							"inline-flex items-center gap-2 rounded-full px-5 py-2.5 transition",
 							i === 0 ? "bg-texto font-medium text-fondo hover:opacity-80" : "border border-borde hover:border-texto",

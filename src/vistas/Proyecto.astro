@@ -28,7 +28,7 @@ const markdown = traducido(idioma, proyecto.contenido, proyecto.contenidoEn);
 const html = markdown.trim() ? markdownAHtml(markdown) : "";
 ---
 
-<BaseLayout title={titulo} description={resumen}>
+<BaseLayout title={titulo} description={resumen} tipo="article" imagen={`/og/proyectos/${slug}.jpg`}>
 	<a href={ruta(idioma, "/proyectos")} class="inline-flex items-center gap-1 pt-12 text-sm text-tenue transition-colors hover:text-texto">
 		<Icono nombre="lucide:arrow-left" class="size-4" />
 		{t("proyecto.volver")}

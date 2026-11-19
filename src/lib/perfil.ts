@@ -16,6 +16,8 @@ export const PERFIL_INICIAL: Perfil = {
 	github: "https://github.com/XtrullorEas",
 	linkedin: "https://www.linkedin.com/in/moroteelias/",
 	whatsapp: null,
+	cv: null,
+	cvEn: null,
 	disponible: true,
 	rolEn: "Web developer",
 	fraseEn: "I build the web, and the server it lives on.",

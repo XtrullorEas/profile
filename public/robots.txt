@@ -1,0 +1,6 @@
+# Los buscadores pueden indexar todo el sitio menos el panel de administración
+User-agent: *
+Allow: /
+Disallow: /admin
+
+Sitemap: https://portfolio.moloeas.com/sitemap.xml

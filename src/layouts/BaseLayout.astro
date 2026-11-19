@@ -12,9 +12,13 @@ interface Props {
 	description?: string; // el "?" la hace opcional
 	/** "estrecho": columna de lectura centrada. "completo": la página decide los anchos (landing) */
 	ancho?: "estrecho" | "completo";
+	/** Imagen para la vista previa al compartir (Open Graph). Por defecto, la de la portada */
+	imagen?: string;
+	/** "article" para la página de un proyecto; "website" para el resto */
+	tipo?: "website" | "article";
 }
 
-const { title, description, ancho = "estrecho" } = Astro.props;
+const { title, description, ancho = "estrecho", imagen = "/og/inicio.jpg", tipo = "website" } = Astro.props;
 // El idioma sale de la URL: "/en/..." → "en". Lo da Astro gracias a i18n en astro.config.mjs
 const idioma = idiomaDe(Astro.currentLocale);
 const t = traductor(idioma);
@@ -27,6 +31,12 @@ const rol = traducido(idioma, perfil.rol, perfil.rolEn);
 const pathname = Astro.url.pathname;
 const enOtroIdioma = rutaEnOtroIdioma(pathname, idioma);
 const alternativas = { es: idioma === "es" ? pathname : enOtroIdioma, en: idioma === "en" ? pathname : enOtroIdioma };
+
+// Open Graph: lo que muestran LinkedIn, WhatsApp, X... al pegar el enlace.
+// Las URLs tienen que ser ABSOLUTAS (con el dominio): por eso new URL(..., Astro.site)
+const titulo = `${title} | ${perfil.nombre}`;
+const descripcion = description ?? `${perfil.nombre}, ${rol}.`;
+const canonica = new URL(pathname, Astro.site);
 ---
 
 <html lang={idioma}>
@@ -51,8 +61,22 @@ const alternativas = { es: idioma === "es" ? pathname : enOtroIdioma, en: idioma
 		<Font cssVariable="--font-dmserif" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="viewport" content="width=device-width" />
-		<title>{title} | {perfil.nombre}</title>
-		<meta name="description" content={description ?? `${perfil.nombre}, ${rol}.`} />
+		<title>{titulo}</title>
+		<meta name="description" content={descripcion} />
+		<link rel="canonical" href={canonica} />
+		<meta property="og:type" content={tipo} />
+		<meta property="og:site_name" content={perfil.nombre} />
+		<meta property="og:title" content={titulo} />
+		<meta property="og:description" content={descripcion} />
+		<meta property="og:url" content={canonica} />
+		<meta property="og:image" content={new URL(imagen, Astro.site)} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content={titulo} />
+		<meta property="og:locale" content={idioma === "es" ? "es_PE" : "en_US"} />
+		<meta property="og:locale:alternate" content={idioma === "es" ? "en_US" : "es_PE"} />
+		<!-- X (Twitter): tarjeta con imagen grande -->
+		<meta name="twitter:card" content="summary_large_image" />
 		<link rel="alternate" hreflang="es" href={new URL(alternativas.es, Astro.site)} />
 		<link rel="alternate" hreflang="en" href={new URL(alternativas.en, Astro.site)} />
 	</head>

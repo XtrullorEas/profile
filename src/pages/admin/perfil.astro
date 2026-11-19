@@ -117,6 +117,34 @@ const claseInput = (campo: string) => [
 			</div>
 		</fieldset>
 
+		<fieldset class="rounded-xl border border-borde p-4">
+			<legend class="px-1 text-sm text-tenue">CV <span class="text-xs">(PDF, máx. 5 MB: aparece el botón "Descargar CV")</span></legend>
+			<div class="grid gap-6 text-sm sm:grid-cols-2">
+				{
+					[
+						{ campo: "cv", quitar: "quitarCv", titulo: "En español", actual: guardado.cv },
+						{ campo: "cvEn", quitar: "quitarCvEn", titulo: "In English (opcional: si falta, /en ofrece el español)", actual: guardado.cvEn },
+					].map((c) => (
+						<div class="space-y-2">
+							<p class="text-tenue">{c.titulo}</p>
+							{c.actual && (
+								<a href={c.actual} target="_blank" class="inline-flex items-center gap-1 text-acento hover:underline">
+									Ver el CV actual ↗
+								</a>
+							)}
+							<input type="file" name={c.campo} accept="application/pdf,.pdf" class="block w-full text-tenue file:mr-3 file:rounded-md file:border-0 file:bg-acento file:px-3 file:py-1.5 file:text-white" />
+							{errores[c.campo] && <p class="text-red-300">{errores[c.campo]![0]}</p>}
+							{c.actual && (
+								<label class="flex items-center gap-2">
+									<input type="checkbox" name={c.quitar} class="accent-acento" /> Quitar este CV
+								</label>
+							)}
+						</div>
+					))
+				}
+			</div>
+		</fieldset>
+
 		<label class="flex items-center gap-2 text-sm">
 			<input type="checkbox" name="disponible" checked={disponible} class="accent-acento" />
 			Mostrar "Disponible para trabajar"

@@ -74,6 +74,9 @@ export const perfil = pgTable("perfil", {
 	hobbies: text("hobbies").array().notNull().default([]),
 	hobbiesEn: text("hobbies_en").array().notNull().default([]),
 	foto: varchar("foto", { length: 255 }),
+	// CV en PDF (subido desde el admin). cvEn: versión en inglés (si falta, /en ofrece cv)
+	cv: varchar("cv", { length: 255 }),
+	cvEn: varchar("cv_en", { length: 255 }),
 	email: varchar("email", { length: 160 }),
 	github: varchar("github", { length: 255 }),
 	linkedin: varchar("linkedin", { length: 255 }),

@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1794870156683,
-      "tag": "0000_crear_proyectos",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1795022005495,
-      "tag": "0001_stormy_clea",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1795039105584,
-      "tag": "0002_odd_hawkeye",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1795041477892,
-      "tag": "0003_silent_unus",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1795056029976,
-      "tag": "0004_flawless_leper_queen",
+      "when": 1795057218211,
+      "tag": "0000_esquema_inicial",
       "breakpoints": true
     }
   ]
