@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 # imágenes subidas desde el admin (viven en el servidor, no en git)
 uploads/
+
+# datos de ejecución (sesiones del admin)
+data/

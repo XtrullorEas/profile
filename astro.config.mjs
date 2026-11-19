@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig, envField, fontProviders } from 'astro/config';
+import { defineConfig, envField, fontProviders, sessionDrivers } from 'astro/config';
 
 import tailwindcss from '@tailwindcss/vite';
 import node from '@astrojs/node';
@@ -92,6 +92,11 @@ export default defineConfig({
   // El navegador solo recibe una cookie con un ID aleatorio (httpOnly: JS no puede leerla).
   session: {
     ttl: 60 * 60 * 24 * 7, // la sesión dura 7 días (en segundos)
+    // Dónde se guardan: "./data/sessions" (relativo a la carpeta desde donde corre el
+    // servidor). En el contenedor es /app/data/sessions, dentro del VOLUMEN de Dokploy:
+    // así un redeploy no te cierra la sesión. (Por defecto iba a node_modules/.astro,
+    // que se recrea en cada deploy.)
+    driver: sessionDrivers.fsLite({ base: './data/sessions' }),
   },
 
   // El adapter le dice a Astro cómo correr las rutas que necesitan servidor

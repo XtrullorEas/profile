@@ -30,9 +30,20 @@ ENV PORT=4321
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+# Migraciones + script de arranque (aplica migraciones y luego arranca el servidor)
+COPY --from=build /app/drizzle ./drizzle
+COPY --from=build /app/scripts/iniciar.mjs ./scripts/iniciar.mjs
+
+# Datos que deben SOBREVIVIR a cada deploy: imágenes/CV subidos y sesiones del admin.
+# En Dokploy, /app/data se monta como volumen.
+ENV UPLOADS_DIR=/app/data/uploads
+RUN mkdir -p /app/data/uploads /app/data/sessions && chown -R node:node /app/data
+
+# No correr como root dentro del contenedor (la imagen de Node trae el usuario "node")
+USER node
 
 EXPOSE 4321
 
 # El adapter Node genera un servidor listo para usar.
 # Sirve los HTML estáticos de dist/client y las rutas de servidor (admin, etc.).
-CMD ["node", "./dist/server/entry.mjs"]
+CMD ["node", "scripts/iniciar.mjs"]
