@@ -1,0 +1,1 @@
+ALTER TABLE "perfil" ADD COLUMN "whatsapp" varchar(30);

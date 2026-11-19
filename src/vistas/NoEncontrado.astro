@@ -1,0 +1,22 @@
+---
+// "Esta página no existe", en el idioma que le pasen.
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { traductor, ruta, type Idioma } from "../i18n";
+
+interface Props {
+	idioma: Idioma;
+}
+
+const { idioma } = Astro.props;
+const t = traductor(idioma);
+---
+
+<BaseLayout title={t("404.titulo")}>
+	<div class="py-20 text-center">
+		<p class="font-numero text-8xl text-tenue">404</p>
+		<h1 class="mt-4 text-3xl">{t("404.texto")}</h1>
+		<a href={ruta(idioma, "/proyectos")} class="mt-8 inline-block rounded-full bg-texto px-5 py-2.5 text-sm font-medium text-fondo transition hover:opacity-80">
+			{t("404.volver")}
+		</a>
+	</div>
+</BaseLayout>

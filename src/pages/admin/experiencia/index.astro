@@ -1,0 +1,58 @@
+---
+// Lista de trabajos, con editar y borrar.
+export const prerender = false;
+
+import { actions } from "astro:actions";
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { getExperiencia } from "../../../lib/perfil";
+import { periodo } from "../../../lib/fechas";
+
+const borrado = Astro.getActionResult(actions.eliminarExperiencia);
+if (borrado && !borrado.error) return Astro.redirect("/admin/experiencia?ok=eliminado");
+
+const trabajos = await getExperiencia();
+const aviso = { creado: "✓ Trabajo agregado.", eliminado: "✓ Trabajo eliminado." }[Astro.url.searchParams.get("ok") ?? ""];
+---
+
+<AdminLayout title="Experiencia">
+	<div class="flex flex-wrap items-center justify-between gap-4">
+		<h1 class="text-3xl font-bold">Experiencia</h1>
+		<a href="/admin/experiencia/nueva" class="rounded-lg bg-acento px-4 py-2.5 font-medium text-white transition hover:opacity-90">+ Agregar trabajo</a>
+	</div>
+
+	{aviso && <p class="mt-6 rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-300">{aviso}</p>}
+	{borrado?.error && <p class="mt-6 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">{borrado.error.message}</p>}
+
+	{
+		trabajos.length === 0 ? (
+			<p class="mt-8 rounded-xl border border-dashed border-borde p-10 text-center text-tenue">
+				Todavía no agregaste trabajos. <a href="/admin/experiencia/nueva" class="text-acento hover:underline">Agrega el primero</a>: aparecerán en la portada.
+			</p>
+		) : (
+			<ul class="mt-8 divide-y divide-borde overflow-hidden rounded-xl border border-borde">
+				{trabajos.map((t) => (
+					<li class="flex items-center gap-4 bg-superficie p-4">
+						{t.logo ? <img src={t.logo} alt="" class="size-10 shrink-0 rounded-md bg-white object-contain p-1" /> : <div class="size-10 shrink-0 rounded-md border border-dashed border-borde" />}
+						<div class="min-w-0 flex-1">
+							<a href={`/admin/experiencia/${t.id}`} class="font-medium hover:text-acento">{t.empresa}</a>
+							<p class="text-sm text-tenue">{t.cargo} · {periodo(t.inicio, t.fin)}</p>
+						</div>
+						<a href={`/admin/experiencia/${t.id}`} class="rounded-md border border-borde px-3 py-1.5 text-sm hover:border-acento/60">Editar</a>
+						<form method="post" action={actions.eliminarExperiencia} data-confirmar={`¿Borrar "${t.empresa}"? No se puede deshacer.`}>
+							<input type="hidden" name="id" value={t.id} />
+							<button class="rounded-md border border-red-500/40 px-3 py-1.5 text-sm text-red-300 hover:bg-red-500/10">Borrar</button>
+						</form>
+					</li>
+				))}
+			</ul>
+		)
+	}
+</AdminLayout>
+
+<script>
+	document.querySelectorAll<HTMLFormElement>("form[data-confirmar]").forEach((form) => {
+		form.addEventListener("submit", (e) => {
+			if (!confirm(form.dataset.confirmar)) e.preventDefault();
+		});
+	});
+</script>

@@ -1,68 +1,9 @@
 ---
-// La portada muestra los destacados de la BD → también bajo demanda
+// Portada en español: "/". La versión en inglés es src/pages/en/index.astro.
+// Toda la página está en src/vistas/Inicio.astro (el idioma sale de la URL).
+// prerender = false: el contenido sale de la BD en cada visita.
 export const prerender = false;
-
-import BaseLayout from "../layouts/BaseLayout.astro";
-import Tag from "../components/Tag.astro";
-import ProjectCard from "../components/ProjectCard.astro";
-import { getDestacados } from "../lib/proyectos";
-
-// El filtro ahora lo hace Postgres (WHERE destacado = true), no JavaScript
-const destacados = await getDestacados();
-
-const nombre = "Elías";
-const rol = "Desarrollador web";
-const tecnologias = ["Astro", "TypeScript", "Tailwind","PHP", "MySQL", "JavaScript", "HTML", "CSS"];
+import Inicio from "../vistas/Inicio.astro";
 ---
 
-<BaseLayout title="Inicio">
-	<!-- Hero -->
-	<section class="py-16">
-		<p class="mb-3 text-sm font-medium text-acento">{rol}</p>
-		<h1 class="text-4xl font-bold tracking-tight sm:text-5xl">
-			Hola, soy {nombre} 👋
-		</h1>
-		<p class="mt-4 max-w-xl text-lg text-tenue">
-			Construyo sitios y aplicaciones web. Aquí vas a encontrar los proyectos en los que he trabajado.
-		</p>
-
-		<div class="mt-8 flex gap-3">
-			<a
-				href="/proyectos"
-				class="rounded-lg bg-acento px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
-			>
-				Ver proyectos
-			</a>
-			<a
-				href="/sobre-mi"
-				class="rounded-lg border border-borde px-5 py-2.5 text-sm font-medium transition hover:border-acento/60"
-			>
-				Más sobre mí →
-			</a>
-		</div>
-	</section>
-
-	<!-- Proyectos destacados -->
-	{
-		destacados.length > 0 && (
-			<section class="mb-16">
-				<h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-tenue">
-					Proyectos destacados
-				</h2>
-				<div class="grid gap-6 sm:grid-cols-2">
-					{destacados.map((proyecto) => <ProjectCard proyecto={proyecto} />)}
-				</div>
-			</section>
-		)
-	}
-
-	<!-- Tecnologías -->
-	<section>
-		<h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-tenue">
-			Tecnologías que uso
-		</h2>
-		<div class="flex flex-wrap gap-2">
-			{tecnologias.map((tec) => <Tag texto={tec} />)}
-		</div>
-	</section>
-</BaseLayout>
+<Inicio />

@@ -1,0 +1,129 @@
+---
+// Tus datos de la portada: frase, bio, foto, enlaces y la insignia "Disponible".
+export const prerender = false;
+
+import { actions, isInputError } from "astro:actions";
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { getPerfil } from "../../lib/perfil";
+import SelectorTecnologias from "../../components/admin/SelectorTecnologias.tsx";
+import { catalogoParaSelector, aNombresDelCatalogo } from "../../lib/tecnologias";
+
+const resultado = Astro.getActionResult(actions.guardarPerfil);
+if (resultado && !resultado.error) return Astro.redirect("/admin/perfil?ok=1");
+
+const guardado = await getPerfil();
+// Si falló, mostramos lo que escribiste; si no, lo guardado
+const enviado = resultado?.error ? await Astro.request.formData() : null;
+const v = (campo: keyof typeof guardado) => (enviado ? String(enviado.get(campo) ?? "") : String(guardado[campo] ?? ""));
+const disponible = enviado ? enviado.has("disponible") : guardado.disponible;
+// Listas (stack, hobbies): en el formulario van como "a, b, c"
+const lista = (campo: "stack" | "hobbies" | "hobbiesEn") => (enviado ? String(enviado.get(campo) ?? "") : guardado[campo].join(", "));
+
+const errores = isInputError(resultado?.error) ? resultado.error.fields : {};
+const errorGeneral = resultado?.error && !isInputError(resultado.error) ? resultado.error.message : undefined;
+
+const campos = [
+	{ nombre: "nombre", label: "Nombre *" },
+	{ nombre: "rol", label: "Rol *", placeholder: "Desarrollador web" },
+	{ nombre: "email", label: "Correo de contacto", tipo: "email" },
+	{ nombre: "github", label: "GitHub", tipo: "url" },
+	{ nombre: "linkedin", label: "LinkedIn", tipo: "url" },
+	{ nombre: "whatsapp", label: "WhatsApp (con código de país)", tipo: "tel", placeholder: "+51 915353137" },
+] as const;
+const claseInput = (campo: string) => [
+	"mt-1 w-full rounded-lg border bg-superficie px-3 py-2 outline-none focus:border-acento",
+	errores[campo] ? "border-red-500/70" : "border-borde",
+];
+---
+
+<AdminLayout title="Perfil">
+	<h1 class="mb-8 text-3xl font-bold">Perfil</h1>
+
+	{Astro.url.searchParams.has("ok") && <p class="mb-6 rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-300">✓ Perfil guardado.</p>}
+	{
+		(errorGeneral || Object.keys(errores).length > 0) && (
+			<p class="mb-6 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">{errorGeneral ?? "Revisa los campos marcados en rojo."}</p>
+		)
+	}
+
+	<form method="post" action={actions.guardarPerfil} enctype="multipart/form-data" class="space-y-6" novalidate>
+		<label class="block">
+			<span class="text-sm text-tenue">Frase de la portada * <span class="text-xs">(máx. 160). Palabras que rotan: entre corchetes y separadas por |, ej. <code>[Fullstack|automatización|agentes de IA]. Hago que...</code></span></span>
+			<input name="frase" value={v("frase")} maxlength="160" class:list={[claseInput("frase"), "text-lg"]} />
+			{errores.frase && <span class="mt-1 block text-sm text-red-300">{errores.frase[0]}</span>}
+		</label>
+
+		<label class="block">
+			<span class="text-sm text-tenue">Sobre ti * <span class="text-xs">(debajo de la frase). Línea en blanco = párrafo nuevo. Texto [entre corchetes] = efecto de descifrado</span></span>
+			<textarea name="bio" rows="4" class:list={claseInput("bio")}>{v("bio")}</textarea>
+			{errores.bio && <span class="mt-1 block text-sm text-red-300">{errores.bio[0]}</span>}
+		</label>
+
+		<div class="grid gap-6 sm:grid-cols-2">
+			{
+				campos.map((c) => (
+					<label class="block">
+						<span class="text-sm text-tenue">{c.label}</span>
+						<input name={c.nombre} type={"tipo" in c ? c.tipo : "text"} value={v(c.nombre)} placeholder={"placeholder" in c ? c.placeholder : undefined} class:list={claseInput(c.nombre)} />
+						{errores[c.nombre] && <span class="mt-1 block text-sm text-red-300">{errores[c.nombre]![0]}</span>}
+					</label>
+				))
+			}
+		</div>
+
+		<div class="block">
+			<span class="text-sm text-tenue">Stack <span class="text-xs">(la cinta de logos de la portada, en este orden)</span></span>
+			<SelectorTecnologias client:load name="stack" catalogo={catalogoParaSelector} seleccion={aNombresDelCatalogo(lista("stack"))} />
+		</div>
+
+		<label class="block">
+			<span class="text-sm text-tenue">Hobbies <span class="text-xs">("Fuera del código", separados por comas)</span></span>
+			<input name="hobbies" value={lista("hobbies")} placeholder="Videojuegos, Música, Cine" class:list={claseInput("hobbies")} />
+		</label>
+
+		<!-- Inglés: plegable -->
+		<details class="rounded-xl border border-borde p-4" open={!!(v("rolEn") || v("fraseEn") || v("bioEn")) || undefined}>
+			<summary class="cursor-pointer text-sm text-tenue">English (opcional): si un campo queda vacío, en /en se muestra el español</summary>
+			<div class="mt-4 space-y-4">
+				<label class="block">
+					<span class="text-sm text-tenue">Role</span>
+					<input name="rolEn" value={v("rolEn")} maxlength="80" placeholder="Software Engineer" class:list={claseInput("rolEn")} />
+				</label>
+				<label class="block">
+					<span class="text-sm text-tenue">Headline <span class="text-xs">(máx. 160)</span></span>
+					<input name="fraseEn" value={v("fraseEn")} maxlength="160" class:list={claseInput("fraseEn")} />
+					{errores.fraseEn && <span class="mt-1 block text-sm text-red-300">{errores.fraseEn[0]}</span>}
+				</label>
+				<label class="block">
+					<span class="text-sm text-tenue">About you</span>
+					<textarea name="bioEn" rows="4" class:list={claseInput("bioEn")}>{v("bioEn")}</textarea>
+				</label>
+				<label class="block">
+					<span class="text-sm text-tenue">Hobbies <span class="text-xs">(separados por comas, en el mismo orden)</span></span>
+					<input name="hobbiesEn" value={lista("hobbiesEn")} placeholder="Video games, Music, Movies" class:list={claseInput("hobbiesEn")} />
+				</label>
+			</div>
+		</details>
+
+		<fieldset class="rounded-xl border border-borde p-4">
+			<legend class="px-1 text-sm text-tenue">Foto</legend>
+			<div class="flex items-center gap-4 text-sm">
+				<img src={guardado.foto ?? undefined} hidden={!guardado.foto} data-preview="foto" alt="" class="size-20 rounded-full border border-borde object-cover" />
+				<div class="space-y-2">
+					<input type="file" name="foto" accept="image/jpeg,image/png,image/webp,image/avif" class="block text-tenue file:mr-3 file:rounded-md file:border-0 file:bg-acento file:px-3 file:py-1.5 file:text-white" />
+					{errores.foto && <p class="text-red-300">{errores.foto[0]}</p>}
+					{guardado.foto && <label class="flex items-center gap-2"><input type="checkbox" name="quitarFoto" class="accent-acento" /> Quitar la foto</label>}
+				</div>
+			</div>
+		</fieldset>
+
+		<label class="flex items-center gap-2 text-sm">
+			<input type="checkbox" name="disponible" checked={disponible} class="accent-acento" />
+			Mostrar "Disponible para trabajar"
+		</label>
+
+		<div class="border-t border-borde pt-6">
+			<button class="rounded-lg bg-acento px-5 py-2.5 font-medium text-white transition hover:opacity-90">Guardar perfil</button>
+		</div>
+	</form>
+</AdminLayout>

@@ -1,0 +1,212 @@
+---
+/**
+ * TracingBeam — de nularUI (https://astro.nularui.dev/components/tracing-beam/).
+ * Una línea vertical junto al contenido: un tramo con degradado baja por el riel
+ * mientras haces scroll, con un punto de estado arriba. Un custom element convierte
+ * el progreso del scroll en la posición del degradado SVG, suavizado con lerp-loop.
+ *
+ * Adaptado para este portfolio:
+ *   - colores: los del tema (claro/oscuro) en vez de cian → violeta
+ *   - rutas de import según src/components/nular/
+ *   - sin max-width propio: el ancho lo decide la sección
+ */
+interface Props {
+  /** Additional classes for the root element. */
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<nular-tracing-beam class={className}>
+  <div class="rail" aria-hidden="true">
+    <div class="dot-ring">
+      <div class="dot"></div>
+    </div>
+    <svg width="20" class="track">
+      <path class="base" fill="none" stroke="#9091A0" stroke-opacity="0.16"
+      ></path>
+      <path class="beam" fill="none" stroke-width="1.25"></path>
+      <defs>
+        <linearGradient
+          class="beam-gradient"
+          gradientUnits="userSpaceOnUse"
+          x1="0"
+          x2="0"
+          y1="0"
+          y2="0"
+        >
+          <!-- Original: #18CCFC → #6344F5 → #AE48FF -->
+          <!-- Colores del tema (claro u oscuro) vía CSS: ver .stop-* abajo -->
+          <stop class="stop-texto" stop-opacity="0"></stop>
+          <stop class="stop-texto"></stop>
+          <stop offset="0.325" class="stop-tenue"></stop>
+          <stop offset="1" class="stop-tenue" stop-opacity="0"></stop>
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+  <div class="content">
+    <slot />
+  </div>
+</nular-tracing-beam>
+
+<style>
+  nular-tracing-beam {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .rail {
+    position: absolute;
+    top: 0.75rem;
+    left: -1rem;
+  }
+
+  @media (min-width: 768px) {
+    .rail {
+      left: -5rem;
+    }
+  }
+
+  .dot-ring {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    margin-left: 27px;
+    border: 1px solid var(--color-borde);
+    border-radius: 9999px;
+    box-shadow: rgb(0 0 0 / 0.24) 0 3px 8px;
+    transition: box-shadow 0.2s 0.5s;
+  }
+
+  .dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border: 1px solid #059669;
+    border-radius: 9999px;
+    background: #10b981;
+    transition:
+      background-color 0.2s 0.5s,
+      border-color 0.2s 0.5s;
+  }
+
+  :global(nular-tracing-beam.scrolled) .dot-ring {
+    box-shadow: none;
+  }
+
+  /* Original: blanco. Aquí el color del texto, para que se vea en los dos temas */
+  :global(nular-tracing-beam.scrolled) .dot {
+    background: var(--color-texto);
+    border-color: var(--color-texto);
+  }
+
+  .track {
+    display: block;
+    margin-left: 1rem;
+  }
+
+  /* stop-color acepta variables CSS: el haz sigue al tema */
+  .stop-texto {
+    stop-color: var(--color-texto);
+  }
+  .stop-tenue {
+    stop-color: var(--color-tenue);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .beam {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  import {
+    createLerpLoop,
+    type LerpLoop,
+  } from '../../lib/nular/lerp-loop';
+  import {
+    trackScrollProgress,
+    type ScrollProgressHandle,
+  } from '../../lib/nular/scroll-progress';
+
+  class NularTracingBeam extends HTMLElement {
+    #resize: ResizeObserver | null = null;
+    #progress: ScrollProgressHandle | null = null;
+    #beam: LerpLoop | null = null;
+    #height = 0;
+
+    connectedCallback() {
+      const content = this.querySelector<HTMLElement>('.content');
+      const gradient = this.querySelector<SVGElement>('.beam-gradient');
+      if (!content || !gradient) return;
+
+      // Light smoothing toward the scroll target (the original's spring).
+      this.#beam = createLerpLoop([50, 50], {
+        factor: 0.18,
+        epsilon: 0.5,
+        onFrame: (values) => {
+          gradient.setAttribute('y1', values[0]!.toFixed(1));
+          gradient.setAttribute('y2', values[1]!.toFixed(1));
+        },
+      });
+
+      this.#resize = new ResizeObserver(() => this.#measure());
+      this.#resize.observe(content);
+      this.#measure();
+
+      // Progress runs 0 -> 1 while the root crosses the viewport top
+      // (the original's `-rect.top / rect.height`).
+      this.#progress = trackScrollProgress(this, {
+        start: [0, 0],
+        end: [1, 0],
+        onChange: (progress) => {
+          this.classList.toggle('scrolled', progress > 0);
+          const h = this.#height;
+          this.#beam?.setTarget(
+            50 + Math.min(progress / 0.8, 1) * (h - 50),
+            50 + progress * (h - 200 - 50),
+          );
+        },
+      });
+    }
+
+    disconnectedCallback() {
+      this.#resize?.disconnect();
+      this.#progress?.destroy();
+      this.#beam?.destroy();
+    }
+
+    #measure() {
+      const content = this.querySelector<HTMLElement>('.content');
+      const svg = this.querySelector<SVGSVGElement>('.track');
+      if (!content || !svg) return;
+      this.#height = content.offsetHeight;
+      const h = this.#height;
+      svg.setAttribute('viewBox', `0 0 20 ${h}`);
+      svg.setAttribute('height', String(h));
+      const d = `M 1 0V -36 l 18 24 V ${h * 0.8} l -18 24V ${h}`;
+      this.querySelector('.base')?.setAttribute('d', d);
+      const beam = this.querySelector<SVGPathElement>('.beam');
+      const gradient = this.querySelector<SVGElement>('.beam-gradient');
+      if (beam && gradient) {
+        if (!gradient.id) {
+          gradient.id = `nui-tb-${Math.random().toString(36).slice(2, 9)}`;
+        }
+        beam.setAttribute('d', d);
+        beam.setAttribute('stroke', `url(#${gradient.id})`);
+      }
+      // The beam targets depend on the measured height.
+      this.#progress?.update();
+    }
+  }
+
+  if (!customElements.get('nular-tracing-beam')) {
+    customElements.define('nular-tracing-beam', NularTracingBeam);
+  }
+</script>

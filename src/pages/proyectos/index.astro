@@ -1,37 +1,7 @@
 ---
-// Este archivo está en pages/proyectos/index.astro → URL: /proyectos
-//
-// prerender = false → página BAJO DEMANDA: se genera en el servidor en cada visita.
-// Así un proyecto creado en el admin aparece al instante, sin rebuild.
+// "/proyectos" (español). La vista está en src/vistas/Proyectos.astro.
 export const prerender = false;
-
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import ProjectCard from "../../components/ProjectCard.astro";
-import { getProyectos } from "../../lib/proyectos";
-
-// "await" en el frontmatter: ahora se ejecuta en CADA petición (consulta a Postgres)
-const proyectos = await getProyectos();
+import Proyectos from "../../vistas/Proyectos.astro";
 ---
 
-<BaseLayout title="Proyectos" description="Proyectos en los que he trabajado.">
-	<h1 class="text-4xl font-bold tracking-tight">Proyectos</h1>
-	{
-		proyectos.length === 0 ? (
-			// "Estado vacío": mejor un mensaje que una página en blanco
-			<p class="mt-10 rounded-xl border border-dashed border-borde p-10 text-center text-tenue">
-				Todavía no hay proyectos publicados. ¡Pronto habrá novedades!
-			</p>
-		) : (
-			<>
-				<p class="mt-3 text-lg text-tenue">
-					{proyectos.length} {proyectos.length === 1 ? "proyecto" : "proyectos"} en los que he trabajado.
-				</p>
-
-				{/* grid: 1 columna en móvil, 2 a partir de 640px (sm:) */}
-				<div class="mt-10 grid gap-6 sm:grid-cols-2">
-					{proyectos.map((proyecto) => <ProjectCard proyecto={proyecto} />)}
-				</div>
-			</>
-		)
-	}
-</BaseLayout>
+<Proyectos />

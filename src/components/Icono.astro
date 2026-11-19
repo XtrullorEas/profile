@@ -1,0 +1,19 @@
+---
+// Dibuja un icono de Iconify como <svg> en el SERVIDOR: al navegador no llega
+// ni una librería ni JavaScript, solo el SVG ya armado.
+//   <Icono nombre="logos:php" />   <Icono nombre="lucide:mail" class="size-4" />
+import { svgDe, type IdIcono } from "../lib/iconos";
+
+interface Props {
+	nombre: IdIcono;
+	class?: string;
+	titulo?: string; // texto para lectores de pantalla; sin él, el icono es decorativo
+	colorDelTexto?: boolean; // logo monocromo pintado con el color del texto (ver svgDe)
+}
+
+const { nombre, class: clase = "size-5", titulo, colorDelTexto = false } = Astro.props;
+const svg = svgDe(nombre, { class: clase, ...(titulo ? { role: "img", "aria-label": titulo } : { "aria-hidden": "true" }) }, colorDelTexto);
+if (!svg) throw new Error(`Icono no encontrado: ${nombre}`);
+---
+
+<Fragment set:html={svg} />

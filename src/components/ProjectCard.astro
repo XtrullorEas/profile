@@ -1,46 +1,79 @@
 ---
-// El tipo Proyecto sale directamente de la tabla (schema.ts).
-// Si añades una columna, este tipo la incluye solo.
+// Un proyecto, presentado como en Behance: número grande en serif, título con punto,
+// captura a todo lo ancho, logos de las tecnologías y logros en pastillas.
 import type { Proyecto } from "../lib/db/schema";
 import Tag from "./Tag.astro";
-import { formatearFecha } from "../lib/proyectos";
+import Icono from "./Icono.astro";
+import { conPunto } from "../lib/proyectos";
+import { idiomaDe, traductor, traducido, ruta } from "../i18n";
 
 interface Props {
 	proyecto: Proyecto;
+	numero: number; // 1 → "01"
 }
 
-const { proyecto } = Astro.props;
-const { slug, titulo, resumen, fecha, tecnologias, portada } = proyecto;
+const { proyecto, numero } = Astro.props;
+const idioma = idiomaDe(Astro.currentLocale);
+const t = traductor(idioma);
+const { slug, titulo, tecnologias, portada, demo } = proyecto;
+// Contenido en inglés si existe y estamos en /en; si no, el español
+const resumen = traducido(idioma, proyecto.resumen, proyecto.resumenEn);
+const logros = traducido(idioma, proyecto.logros, proyecto.logrosEn);
+const url = ruta(idioma, `/proyectos/${slug}`);
 ---
 
-<!-- group: permite que los hijos reaccionen al hover de la tarjeta (group-hover:) -->
-<a
-	href={`/proyectos/${slug}`}
-	class="group block overflow-hidden rounded-xl border border-borde bg-superficie transition hover:-translate-y-1 hover:border-acento/60"
->
+<article class="group">
+	<a href={url} class="flex items-baseline gap-4">
+		<span class="font-numero text-5xl leading-none text-tenue sm:text-6xl">{String(numero).padStart(2, "0")}</span>
+		<h3 class="text-3xl font-extrabold transition-colors group-hover:text-tenue sm:text-4xl" transition:name={`titulo-${slug}`}>
+			{conPunto(titulo)}
+		</h3>
+	</a>
+
 	{
-		// Las portadas ahora son archivos subidos desde el admin (Fase 4.5),
-		// por eso usamos <img> normal: <Image> de astro:assets optimiza en el build,
-		// y estas imágenes no existen en el build. Las optimizaremos al subirlas.
 		portada && (
-			<img
-				src={portada}
-				alt={`Portada de ${titulo}`}
-				loading="lazy"
-				class="aspect-video w-full object-cover"
-			/>
+			// Marco de laptop hecho con CSS (como los mockups de Behance): pantalla con
+			// bisel oscuro + una base un poco más ancha
+			<a href={url} class="mt-8 block">
+				<div class="overflow-hidden rounded-t-2xl border-[10px] border-b-[14px] border-neutral-800 bg-black shadow-2xl shadow-white/5 sm:border-[14px] sm:border-b-[18px]">
+					<img
+						src={portada}
+						alt={`${t("proyecto.captura")} ${titulo}`}
+						loading="lazy"
+						class="aspect-video w-full object-cover object-top transition duration-500 group-hover:scale-[1.02]"
+						transition:name={`portada-${slug}`}
+					/>
+				</div>
+				<div class="-mx-[4%] h-3 rounded-b-xl bg-gradient-to-b from-neutral-600 to-neutral-800 sm:h-4" />
+			</a>
 		)
 	}
 
-	<div class="p-5">
-		<p class="text-xs text-tenue">{formatearFecha(fecha)}</p>
-		<h3 class="mt-1 text-lg font-semibold transition-colors group-hover:text-acento">
-			{titulo}
-		</h3>
-		<p class="mt-2 text-sm text-tenue">{resumen}</p>
-
-		<div class="mt-4 flex flex-wrap gap-2">
-			{tecnologias.map((tec) => <Tag texto={tec} />)}
-		</div>
+	<div class="mt-6 flex flex-wrap gap-2">
+		{tecnologias.map((tec) => <Tag texto={tec} />)}
 	</div>
-</a>
+
+	{
+		logros.length > 0 && (
+			<ul class="mt-4 flex flex-wrap gap-2">
+				{logros.map((logro) => (
+					<li class="rounded-full border border-tenue/50 px-3 py-1 text-sm italic">{logro}</li>
+				))}
+			</ul>
+		)
+	}
+
+	<p class="mt-4 max-w-2xl text-tenue">{resumen}</p>
+
+	<div class="mt-5 flex flex-wrap gap-3 text-sm">
+		<a href={url} class="rounded-full bg-texto px-4 py-2 font-medium text-fondo transition hover:opacity-80">{t("proyecto.ver")}</a>
+		{
+			demo && (
+				<a href={demo} target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 rounded-full border border-borde px-4 py-2 transition hover:border-texto">
+					{new URL(demo).hostname}
+					<Icono nombre="lucide:arrow-up-right" class="size-4" />
+				</a>
+			)
+		}
+	</div>
+</article>

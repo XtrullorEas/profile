@@ -1,0 +1,222 @@
+---
+/**
+ * EncryptedText — a run of text that starts as scrambled gibberish and
+ * decrypts left-to-right, one character at a time, once it scrolls into
+ * view. A tiny custom element gates the effect behind an
+ * IntersectionObserver and drives the reveal with a requestAnimationFrame
+ * loop; still-encrypted characters keep re-randomizing from a charset on
+ * an interval. Spaces are always preserved, and the accessible name is
+ * the real text via aria-label (each scramble span is aria-hidden).
+ *
+ * De nularUI (https://astro.nularui.dev/components/encrypted-text/). Adaptado:
+ *   - color de las letras aún cifradas: el tono "tenue" del tema (el original usa
+ *     --nui-color-text-muted, una variable de nularUI que aquí no existe)
+ *   - accesible: el texto real va en un <span class="sr-only"> que los lectores de
+ *     pantalla sí leen (un aria-label en una etiqueta sin rol suele ignorarse)
+ *   - white-space: pre-wrap (con "pre" un párrafo descifrado no se partía en líneas)
+ */
+interface Props {
+  /** The text to reveal. */
+  text: string;
+  /** Milliseconds between revealing each subsequent real character. */
+  revealDelayMs?: number;
+  /** Milliseconds between re-randomizing the still-encrypted characters. */
+  flipDelayMs?: number;
+  /** Character pool used to generate the scramble effect. */
+  charset?: string;
+  /** Additional classes for the root element. */
+  class?: string;
+}
+
+const DEFAULT_CHARSET =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-={}[];:,.<>/?';
+
+const {
+  text,
+  revealDelayMs = 50,
+  flipDelayMs = 50,
+  charset = DEFAULT_CHARSET,
+  class: className,
+} = Astro.props;
+
+const chars = text.split('');
+---
+
+<span class="sr-only">{text}</span>
+<nular-encrypted-text
+  class={className}
+  aria-hidden="true"
+  data-reveal-delay={revealDelayMs}
+  data-flip-delay={flipDelayMs}
+  data-charset={charset}
+>
+  {
+    chars.map((char) => (
+      <span aria-hidden="true">{char}</span>
+    ))
+  }
+</nular-encrypted-text>
+
+<style>
+  nular-encrypted-text {
+    display: inline;
+  }
+
+  span {
+    display: inline;
+    /* Original: pre. Con "pre" los espacios no permiten saltar de línea: un párrafo
+       ya descifrado quedaba en UNA línea que se salía de la pantalla. pre-wrap
+       conserva los espacios y además deja partir la línea en ellos. */
+    white-space: pre-wrap;
+  }
+
+  /* The dim-to-inherit fade only runs once the custom element decides the
+     effect should play; without JS (or under reduced motion) the real
+     text renders at full, inherited color from the very first paint. */
+  nular-encrypted-text.is-active span {
+    color: var(--color-tenue);
+    transition: color 0.15s ease;
+  }
+
+  nular-encrypted-text.is-active span.is-revealed {
+    color: inherit;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    nular-encrypted-text.is-active span {
+      color: inherit;
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  const DEFAULT_CHARSET =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-={}[];:,.<>/?';
+
+  function randomChar(charset: string): string {
+    return charset.charAt(Math.floor(Math.random() * charset.length)) || ' ';
+  }
+
+  class NularEncryptedText extends HTMLElement {
+    #ac: AbortController | null = null;
+    #observer: IntersectionObserver | null = null;
+    #raf = 0;
+    #spans: HTMLElement[] = [];
+    #text = '';
+    #charset = DEFAULT_CHARSET;
+    #revealDelay = 50;
+    #flipDelay = 50;
+    #startTime = 0;
+    #lastFlip = 0;
+    #revealCount = 0;
+
+    connectedCallback() {
+      this.#spans = Array.from(this.querySelectorAll<HTMLElement>('span'));
+      this.#text = this.#spans.map((span) => span.textContent ?? '').join('');
+      this.#charset = this.dataset.charset || DEFAULT_CHARSET;
+      this.#revealDelay = Number(this.dataset.revealDelay ?? 50);
+      this.#flipDelay = Number(this.dataset.flipDelay ?? 50);
+
+      this.#ac = new AbortController();
+      const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+      media.addEventListener('change', () => this.#onMotionChange(media.matches), {
+        signal: this.#ac.signal,
+      });
+
+      if (media.matches || this.#spans.length === 0) {
+        this.#finish();
+        return;
+      }
+
+      this.classList.add('is-active');
+      this.#scramble(0);
+
+      this.#observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              this.#observer?.disconnect();
+              this.#observer = null;
+              this.#start();
+            }
+          }
+        },
+        { threshold: 0.1 },
+      );
+      this.#observer.observe(this);
+    }
+
+    disconnectedCallback() {
+      this.#ac?.abort();
+      this.#observer?.disconnect();
+      cancelAnimationFrame(this.#raf);
+    }
+
+    #onMotionChange(reduced: boolean) {
+      if (!reduced) return;
+      this.#observer?.disconnect();
+      this.#observer = null;
+      cancelAnimationFrame(this.#raf);
+      this.#finish();
+    }
+
+    #finish() {
+      this.classList.remove('is-active');
+      this.#reveal(this.#text.length);
+    }
+
+    #start() {
+      this.#startTime = performance.now();
+      this.#lastFlip = this.#startTime;
+
+      const loop = (now: number) => {
+        const total = this.#text.length;
+        const elapsed = now - this.#startTime;
+        const count = Math.min(
+          total,
+          Math.floor(elapsed / Math.max(1, this.#revealDelay)),
+        );
+
+        if (count !== this.#revealCount) {
+          this.#reveal(count);
+        }
+
+        if (count >= total) {
+          this.classList.remove('is-active');
+          return;
+        }
+
+        if (now - this.#lastFlip >= Math.max(0, this.#flipDelay)) {
+          this.#scramble(count);
+          this.#lastFlip = now;
+        }
+
+        this.#raf = requestAnimationFrame(loop);
+      };
+
+      this.#raf = requestAnimationFrame(loop);
+    }
+
+    #reveal(count: number) {
+      this.#revealCount = count;
+      this.#spans.forEach((span, index) => {
+        if (index >= count) return;
+        span.textContent = this.#text[index] ?? '';
+        span.classList.add('is-revealed');
+      });
+    }
+
+    #scramble(revealCount: number) {
+      this.#spans.forEach((span, index) => {
+        if (index < revealCount) return;
+        const ch = this.#text[index];
+        span.textContent = ch === ' ' ? ' ' : randomChar(this.#charset);
+      });
+    }
+  }
+
+  if (!customElements.get('nular-encrypted-text')) {
+    customElements.define('nular-encrypted-text', NularEncryptedText);
+  }
+</script>

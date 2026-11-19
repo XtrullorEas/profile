@@ -1,0 +1,221 @@
+---
+// LANDING PAGE: todo el portfolio en una sola página, por secciones.
+// La usan src/pages/index.astro (español) y src/pages/en/index.astro (inglés):
+// el idioma sale de la URL (Astro.currentLocale), no hay que duplicar nada.
+// El contenido viene de la BD (lo editas en /admin), con su versión en inglés opcional.
+import BaseLayout from "../layouts/BaseLayout.astro";
+import HeroPortfolio from "../components/HeroPortfolio.astro";
+import LineaTiempo from "../components/LineaTiempo.astro";
+import InfiniteMovingCards from "../components/nular/InfiniteMovingCards.astro";
+import ProjectCard from "../components/ProjectCard.astro";
+import Tag from "../components/Tag.astro";
+import Icono from "../components/Icono.astro";
+import FlipWords from "../components/nular/FlipWords.astro";
+import EncryptedText from "../components/nular/EncryptedText.astro";
+import { separarFrase, fraseEnTexto, parrafosDeBio } from "../lib/frase";
+import { getDestacados } from "../lib/proyectos";
+import { getPerfil, getExperiencia } from "../lib/perfil";
+import { idiomaDe, traductor, traducido, ruta } from "../i18n";
+
+const idioma = idiomaDe(Astro.currentLocale);
+const t = traductor(idioma);
+
+// Las tres consultas a la vez, no una detrás de otra
+const [perfil, trabajos, destacados] = await Promise.all([getPerfil(), getExperiencia(), getDestacados()]);
+
+// Tu contenido: en inglés si lo escribiste en el admin, si no en español
+const rol = traducido(idioma, perfil.rol, perfil.rolEn);
+const frase = traducido(idioma, perfil.frase, perfil.fraseEn);
+// "[a|b|c]. Resto" → palabras que rotan (Flip Words) + el resto de la frase
+const rotacion = separarFrase(frase);
+// La frase como texto normal (para el <meta description> y los lectores de pantalla)
+const fraseTexto = fraseEnTexto(frase, idioma);
+// Si la frase EMPIEZA con las palabras que rotan, van en su propia línea con su
+// puntuación ("Fullstack."): así el resto del texto no salta al cambiar de palabra.
+const enSuLinea = rotacion && rotacion.antes.trim() === "";
+const puntuacion = enSuLinea ? (rotacion.despues.match(/^[.,;:!?…]*/)?.[0] ?? "") : "";
+const bio = traducido(idioma, perfil.bio, perfil.bioEn);
+// Párrafos (línea en blanco = párrafo nuevo); el texto [entre corchetes] se descifra (Encrypted Text)
+const parrafos = parrafosDeBio(bio);
+const hobbies = traducido(idioma, perfil.hobbies, perfil.hobbiesEn);
+
+// El stack, en dos cintas (la segunda va en sentido contrario)
+const mitad = Math.ceil(perfil.stack.length / 2);
+const cintas = [perfil.stack.slice(0, mitad), perfil.stack.slice(mitad)].filter((c) => c.length > 0);
+
+// Enlaces de contacto: solo los que completaste en el perfil
+const contactos = [
+	perfil.email && { href: `mailto:${perfil.email}`, texto: perfil.email, icono: "lucide:mail" as const },
+	// wa.me abre un chat de WhatsApp: el número solo con dígitos (sin "+", espacios ni guiones)
+	perfil.whatsapp && { href: `https://wa.me/${perfil.whatsapp.replace(/\D/g, "")}`, texto: "WhatsApp", icono: "logos:whatsapp-monochrome-icon" as const },
+	perfil.github && { href: perfil.github, texto: "GitHub", icono: "lucide:github" as const },
+	perfil.linkedin && { href: perfil.linkedin, texto: "LinkedIn", icono: "lucide:linkedin" as const },
+].filter((c) => !!c);
+
+const seccion = "mx-auto max-w-5xl scroll-mt-24 px-4 py-24";
+---
+
+<BaseLayout title={t("inicio.titulo")} description={fraseTexto} ancho="completo">
+	<HeroPortfolio nombre={perfil.nombre} rol={rol} foto={perfil.foto} textoFoto={t("inicio.foto")} />
+
+	<!-- Sobre mí -->
+	<section id="sobre-mi" class={seccion}>
+		<h2 class="flex items-center gap-4 text-4xl sm:text-5xl">
+			{t("inicio.sobreMi")}
+			<span class="h-px w-24 bg-borde"></span>
+		</h2>
+
+		<div class="mt-12 grid gap-12 md:grid-cols-[1.3fr_1fr]">
+			<p class="font-titulo text-4xl leading-tight font-bold sm:text-5xl">
+				{
+					!rotacion ? (
+						frase
+					) : enSuLinea ? (
+						<>
+							<span class="block">
+								<FlipWords words={rotacion.palabras} texto={rotacion.palabras.join(", ")} />
+								<span aria-hidden="true">{puntuacion}</span>
+							</span>
+							{rotacion.despues.slice(puntuacion.length).trim()}
+						</>
+					) : (
+						<>
+							{rotacion.antes}
+							<FlipWords words={rotacion.palabras} texto={rotacion.palabras.join(", ")} />
+							{rotacion.despues}
+						</>
+					)
+				}
+			</p>
+
+			<!-- min-w-0: un texto largo nunca puede ensanchar esta columna y aplastar la otra -->
+			<div class="min-w-0 space-y-8">
+				<div class="space-y-4 text-lg leading-relaxed text-tenue">
+					{
+						parrafos.map((partes) => (
+							<p>
+								{partes.map((parte) =>
+									parte.cifrado ? (
+										// Se descifra al aparecer en pantalla; descifrado queda resaltado (text-texto)
+										<span class="text-texto">
+											<EncryptedText text={parte.texto} revealDelayMs={35} />
+										</span>
+									) : (
+										parte.texto
+									),
+								)}
+							</p>
+						))
+					}
+				</div>
+
+				{
+					perfil.disponible && (
+						<p class="inline-flex items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-sm text-green-700 dark:text-green-300">
+							<span class="size-2 rounded-full bg-green-500" />
+							{t("inicio.disponible")}
+						</p>
+					)
+				}
+
+				{
+					hobbies.length > 0 && (
+						<div>
+							<h3 class="mb-3 text-lg">{t("inicio.hobbies")}</h3>
+							<div class="flex flex-wrap gap-2">
+								{hobbies.map((h) => <Tag texto={h} />)}
+							</div>
+						</div>
+					)
+				}
+
+				<div class="flex flex-wrap gap-3">
+					{
+						contactos.map((c) => (
+							<a href={c.href} target={c.href.startsWith("http") ? "_blank" : undefined} rel="noopener" class="inline-flex items-center gap-2 rounded-full border border-borde px-4 py-2 text-sm transition hover:border-texto">
+								<Icono nombre={c.icono} class="size-4" colorDelTexto />
+								{c.texto}
+							</a>
+						))
+					}
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<!-- Experiencia: línea de tiempo con el Tracing Beam de nularUI -->
+	{
+		trabajos.length > 0 && (
+			<section id="experiencia" class={seccion}>
+				<h2 class="flex items-center gap-4 text-4xl sm:text-5xl">
+					{t("inicio.experiencia")}
+					<span class="h-px w-24 bg-borde" />
+				</h2>
+				<LineaTiempo trabajos={trabajos} />
+			</section>
+		)
+	}
+
+	<!-- Proyectos destacados, numerados como en Behance. Clic → su página -->
+	{
+		destacados.length > 0 && (
+			<section id="proyectos" class={seccion}>
+				<div class="flex items-end justify-between gap-4">
+					<h2 class="flex items-center gap-4 text-4xl sm:text-5xl">
+						{t("inicio.proyectos")}
+						<span class="h-px w-24 bg-borde" />
+					</h2>
+					<a href={ruta(idioma, "/proyectos")} class="text-sm text-tenue transition hover:text-texto">
+						{t("inicio.verTodos")}
+					</a>
+				</div>
+				<div class="mt-14 space-y-28">
+					{destacados.map((proyecto, i) => <ProjectCard proyecto={proyecto} numero={i + 1} />)}
+				</div>
+			</section>
+		)
+	}
+
+	<!-- Stack: cintas de logos (Infinite Moving Cards de nularUI). Se edita en /admin/perfil -->
+	{
+		cintas.length > 0 && (
+			<section id="stack" class="scroll-mt-24 py-24">
+				<h2 class="mx-auto flex max-w-5xl items-center gap-4 px-4 text-4xl sm:text-5xl">
+					{t("inicio.stack")}
+					<span class="h-px w-24 bg-borde" />
+				</h2>
+				<div class="mx-auto mt-12 max-w-6xl space-y-3">
+					{cintas.map((cinta, i) => (
+						<InfiniteMovingCards items={cinta} direction={i === 0 ? "left" : "right"} speed="normal" />
+					))}
+				</div>
+			</section>
+		)
+	}
+
+	<!-- Cierre con los contactos, como el "Thank You." de Behance -->
+	<section id="contacto" class={seccion}>
+		<h2 class="text-6xl font-black sm:text-8xl">{t("inicio.hablamos")}</h2>
+		<p class="mt-6 max-w-xl text-lg text-tenue">
+			{perfil.disponible ? t("inicio.buscando") : t("inicio.escribeme")}
+		</p>
+		<div class="mt-10 flex flex-wrap gap-3">
+			{
+				contactos.map((c, i) => (
+					<a
+						href={c.href}
+						target={c.href.startsWith("http") ? "_blank" : undefined}
+						rel="noopener"
+						class:list={[
+							"inline-flex items-center gap-2 rounded-full px-5 py-2.5 transition",
+							i === 0 ? "bg-texto font-medium text-fondo hover:opacity-80" : "border border-borde hover:border-texto",
+						]}
+					>
+						<Icono nombre={c.icono} class="size-4" colorDelTexto />
+						{c.texto}
+					</a>
+				))
+			}
+		</div>
+	</section>
+</BaseLayout>

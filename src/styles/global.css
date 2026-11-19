@@ -5,20 +5,97 @@
 @plugin "@tailwindcss/typography";
 
 /*
-  @theme define "design tokens": variables que Tailwind convierte en clases.
-  Por ejemplo --color-acento genera bg-acento, text-acento, border-acento...
-  Si mañana quieres otro color de marca, lo cambias SOLO aquí.
+  TEMAS claro y oscuro.
+  Los colores son variables que cambian según <html data-theme="light|dark">.
+  Ese atributo lo pone un script en el <head> (BaseLayout) ANTES de dibujar la página:
+  usa lo que elegiste con el botón ☀/☾, o si nunca elegiste, lo que dice tu sistema.
 */
+:root {
+  color-scheme: light; /* barras de scroll y controles nativos en claro */
+  --fondo: #ffffff;
+  --superficie: #f4f4f5;
+  --borde: #e4e4e7;
+  --texto: #0a0a0a;
+  --tenue: #52525b;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --fondo: #000000;
+  --superficie: #0d0d0d;
+  --borde: #262626;
+  --texto: #fafafa;
+  --tenue: #a1a1a1;
+}
+
+/* Sin JavaScript (no hay data-theme): seguimos al sistema */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --fondo: #000000;
+    --superficie: #0d0d0d;
+    --borde: #262626;
+    --texto: #fafafa;
+    --tenue: #a1a1a1;
+  }
+}
+
+/* La variante dark: de Tailwind (ej. dark:prose-invert) sigue al atributo, no al sistema */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+  @theme define "design tokens": variables que Tailwind convierte en clases
+  (bg-fondo, text-texto, border-borde...). "inline" porque apuntan a las variables
+  de arriba, que cambian con el tema.
+*/
+@theme inline {
+  --color-fondo: var(--fondo);
+  --color-superficie: var(--superficie);
+  --color-borde: var(--borde);
+  --color-texto: var(--texto);
+  --color-tenue: var(--tenue);
+}
+
 @theme {
-  --color-fondo: #0b0b10;
-  --color-superficie: #15151d;
-  --color-borde: #2a2a36;
-  --color-texto: #e6e6eb;
-  --color-tenue: #9a9aab;
-  --color-acento: #8b5cf6; /* violeta, en homenaje al rebeccapurple del principio */
+  /* Violeta: solo lo usa el panel de admin */
+  --color-acento: #8b5cf6;
+}
+
+/* "inline": las clases usan directamente las variables que crea <Font /> de Astro */
+@theme inline {
+  --font-titulo: var(--font-outfit), sans-serif;
+  --font-numero: var(--font-dmserif), serif;
+}
+
+/* Los enlaces del menú (/#experiencia...) se desplazan suave hasta la sección */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 /* Estilos base de toda la página */
 body {
   @apply bg-fondo text-texto antialiased;
+}
+
+/* Títulos: geométricos y muy gruesos (también los del Markdown de cada proyecto) */
+h1, h2, h3 {
+  @apply font-titulo font-bold tracking-tight;
+}
+
+/*
+  View Transitions NATIVAS entre páginas: al navegar, el navegador anima el cambio
+  en vez de "parpadear". Los elementos con el mismo transition:name en las dos
+  páginas (portada y título del proyecto) vuelan de su sitio viejo al nuevo.
+  Los navegadores que no lo soportan simplemente navegan normal.
+*/
+@view-transition {
+  navigation: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
 }

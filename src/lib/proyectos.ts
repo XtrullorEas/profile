@@ -45,10 +45,15 @@ export function markdownAHtml(markdown: string) {
 	return marked.parse(markdown, { async: false });
 }
 
+/** "The MyOOPY Bar" → "The MyOOPY Bar." (el punto final de los títulos, estilo Behance) */
+export function conPunto(texto: string) {
+	return /[.!?…]$/.test(texto) ? texto : `${texto}.`;
+}
+
 /** Formatea una fecha como "noviembre de 2026" */
-export function formatearFecha(fecha: Date) {
+export function formatearFecha(fecha: Date, idioma: "es" | "en" = "es") {
 	// timeZone UTC: la columna "date" se guarda sin hora (medianoche UTC).
 	// Sin esto, en una zona horaria negativa como la de Perú, el 1 de noviembre
 	// se mostraría como "octubre".
-	return fecha.toLocaleDateString("es", { year: "numeric", month: "long", timeZone: "UTC" });
+	return fecha.toLocaleDateString(idioma, { year: "numeric", month: "long", timeZone: "UTC" });
 }

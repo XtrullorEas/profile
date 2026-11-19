@@ -1,0 +1,130 @@
+---
+// Crear (/admin/experiencia/nueva) o editar (/admin/experiencia/3) un trabajo.
+// Una sola página para los dos casos: el formulario es idéntico, cambia la Action.
+export const prerender = false;
+
+import { eq } from "drizzle-orm";
+import { actions, isInputError } from "astro:actions";
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { db } from "../../../lib/db";
+import { experiencia } from "../../../lib/db/schema";
+import SelectorTecnologias from "../../../components/admin/SelectorTecnologias.tsx";
+import { catalogoParaSelector, aNombresDelCatalogo } from "../../../lib/tecnologias";
+
+const esNueva = Astro.params.id === "nueva";
+const id = Number(Astro.params.id);
+if (!esNueva && !Number.isInteger(id)) return Astro.rewrite("/404");
+
+const accion = esNueva ? actions.crearExperiencia : actions.actualizarExperiencia;
+const resultado = Astro.getActionResult(accion);
+if (resultado && !resultado.error) {
+	return Astro.redirect(esNueva ? "/admin/experiencia?ok=creado" : `/admin/experiencia/${id}?ok=1`);
+}
+
+const [trabajo] = esNueva ? [] : await db.select().from(experiencia).where(eq(experiencia.id, id));
+if (!esNueva && !trabajo) return Astro.rewrite("/404");
+
+// "2024-03": el formato de <input type="month">
+const fecha = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 7) : "");
+const enviado = resultado?.error ? await Astro.request.formData() : null;
+const v = {
+	empresa: enviado ? String(enviado.get("empresa") ?? "") : (trabajo?.empresa ?? ""),
+	cargo: enviado ? String(enviado.get("cargo") ?? "") : (trabajo?.cargo ?? ""),
+	inicio: enviado ? String(enviado.get("inicio") ?? "") : fecha(trabajo?.inicio),
+	fin: enviado ? String(enviado.get("fin") ?? "") : fecha(trabajo?.fin),
+	logros: enviado ? String(enviado.get("logros") ?? "") : (trabajo?.logros.join("\n") ?? ""),
+	cargoEn: enviado ? String(enviado.get("cargoEn") ?? "") : (trabajo?.cargoEn ?? ""),
+	logrosEn: enviado ? String(enviado.get("logrosEn") ?? "") : (trabajo?.logrosEn.join("\n") ?? ""),
+	tecnologias: enviado ? String(enviado.get("tecnologias") ?? "") : (trabajo?.tecnologias.join(", ") ?? ""),
+};
+
+const errores = isInputError(resultado?.error) ? resultado.error.fields : {};
+const errorGeneral = resultado?.error && !isInputError(resultado.error) ? resultado.error.message : undefined;
+const claseInput = (campo: string) => [
+	"mt-1 w-full rounded-lg border bg-superficie px-3 py-2 outline-none focus:border-acento",
+	errores[campo] ? "border-red-500/70" : "border-borde",
+];
+const error = (campo: string) => errores[campo]?.[0];
+---
+
+<AdminLayout title={esNueva ? "Agregar trabajo" : `Editar: ${trabajo!.empresa}`}>
+	<a href="/admin/experiencia" class="text-sm text-tenue hover:text-texto">← Volver</a>
+	<h1 class="mt-2 mb-8 text-3xl font-bold">{esNueva ? "Agregar trabajo" : trabajo!.empresa}</h1>
+
+	{Astro.url.searchParams.has("ok") && <p class="mb-6 rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-300">✓ Cambios guardados.</p>}
+	{
+		(errorGeneral || Object.keys(errores).length > 0) && (
+			<p class="mb-6 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">{errorGeneral ?? "Revisa los campos marcados en rojo."}</p>
+		)
+	}
+
+	<form method="post" action={accion} enctype="multipart/form-data" class="space-y-6" novalidate>
+		{!esNueva && <input type="hidden" name="id" value={id} />}
+
+		<div class="grid gap-6 sm:grid-cols-2">
+			<label class="block">
+				<span class="text-sm text-tenue">Empresa *</span>
+				<input name="empresa" value={v.empresa} maxlength="120" class:list={claseInput("empresa")} />
+				{error("empresa") && <span class="mt-1 block text-sm text-red-300">{error("empresa")}</span>}
+			</label>
+			<label class="block">
+				<span class="text-sm text-tenue">Cargo *</span>
+				<input name="cargo" value={v.cargo} maxlength="120" placeholder="Desarrollador full stack" class:list={claseInput("cargo")} />
+				{error("cargo") && <span class="mt-1 block text-sm text-red-300">{error("cargo")}</span>}
+			</label>
+			<label class="block">
+				<span class="text-sm text-tenue">Desde *</span>
+				<input type="month" name="inicio" value={v.inicio} placeholder="2024-03" class:list={claseInput("inicio")} />
+				{error("inicio") && <span class="mt-1 block text-sm text-red-300">{error("inicio")}</span>}
+			</label>
+			<label class="block">
+				<span class="text-sm text-tenue">Hasta <span class="text-xs">(vacío = trabajo actual)</span></span>
+				<input type="month" name="fin" value={v.fin} placeholder="2025-06" class:list={claseInput("fin")} />
+				{error("fin") && <span class="mt-1 block text-sm text-red-300">{error("fin")}</span>}
+			</label>
+		</div>
+
+		<label class="block">
+			<span class="text-sm text-tenue">Logros <span class="text-xs">(uno por línea)</span></span>
+			<textarea name="logros" rows="4" placeholder={"Migré el sistema de facturación de PHP 5 a PHP 8\nReduje el tiempo de carga del panel a la mitad"} class:list={claseInput("logros")}>{v.logros}</textarea>
+		</label>
+
+		<div class="block">
+			<span class="text-sm text-tenue">Tecnologías</span>
+			<SelectorTecnologias client:load name="tecnologias" catalogo={catalogoParaSelector} seleccion={aNombresDelCatalogo(v.tecnologias)} />
+		</div>
+
+		<!-- Inglés: plegable -->
+		<details class="rounded-xl border border-borde p-4" open={!!(v.cargoEn || v.logrosEn) || undefined}>
+			<summary class="cursor-pointer text-sm text-tenue">English (opcional): si un campo queda vacío, en /en se muestra el español</summary>
+			<div class="mt-4 space-y-4">
+				<label class="block">
+					<span class="text-sm text-tenue">Role</span>
+					<input name="cargoEn" value={v.cargoEn} maxlength="120" placeholder="Full stack developer" class:list={claseInput("cargoEn")} />
+					{error("cargoEn") && <span class="mt-1 block text-sm text-red-300">{error("cargoEn")}</span>}
+				</label>
+				<label class="block">
+					<span class="text-sm text-tenue">Achievements <span class="text-xs">(uno por línea)</span></span>
+					<textarea name="logrosEn" rows="4" class:list={claseInput("logrosEn")}>{v.logrosEn}</textarea>
+				</label>
+			</div>
+		</details>
+
+		<fieldset class="rounded-xl border border-borde p-4">
+			<legend class="px-1 text-sm text-tenue">Logo de la empresa <span class="text-xs">(PNG o SVG convertido, mejor con fondo transparente)</span></legend>
+			<div class="flex items-center gap-4 text-sm">
+				<img src={trabajo?.logo ?? undefined} hidden={!trabajo?.logo} data-preview="logo" alt="" class="size-16 rounded-md bg-white object-contain p-1" />
+				<div class="space-y-2">
+					<input type="file" name="logo" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" class="block text-tenue file:mr-3 file:rounded-md file:border-0 file:bg-acento file:px-3 file:py-1.5 file:text-white" />
+					{error("logo") && <p class="text-red-300">{error("logo")}</p>}
+					{trabajo?.logo && <label class="flex items-center gap-2"><input type="checkbox" name="quitarLogo" class="accent-acento" /> Quitar el logo</label>}
+				</div>
+			</div>
+		</fieldset>
+
+		<div class="flex items-center gap-4 border-t border-borde pt-6">
+			<button class="rounded-lg bg-acento px-5 py-2.5 font-medium text-white transition hover:opacity-90">{esNueva ? "Agregar trabajo" : "Guardar cambios"}</button>
+			<a href="/admin/experiencia" class="text-sm text-tenue hover:text-texto">Cancelar</a>
+		</div>
+	</form>
+</AdminLayout>

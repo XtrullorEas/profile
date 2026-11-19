@@ -3,6 +3,8 @@
 // Es HTML normal: funciona aunque el JavaScript esté desactivado.
 // Los <script> de abajo solo AÑADEN comodidades (slug automático, vista previa...).
 import type { ValoresForm } from "../../lib/form-proyecto";
+import SelectorTecnologias from "./SelectorTecnologias.tsx";
+import { catalogoParaSelector, aNombresDelCatalogo } from "../../lib/tecnologias";
 
 interface Props {
 	/** La Action a la que se envía, ej: actions.crearProyecto (Astro la convierte en "?_action=...") */
@@ -78,12 +80,17 @@ const claseInput = (campo: string) => [
 			{errores.fecha && <span class="mt-1 block text-sm text-red-300">{errores.fecha[0]}</span>}
 		</label>
 
-		<label class="block">
-			<span class="text-sm text-tenue">Tecnologías <span class="text-xs">(separadas por comas)</span></span>
-			<input name="tecnologias" value={v.tecnologias} placeholder="HTML, CSS, JavaScript" class:list={claseInput("tecnologias")} />
+		<div class="block">
+			<span class="text-sm text-tenue">Tecnologías</span>
+			<SelectorTecnologias client:load name="tecnologias" catalogo={catalogoParaSelector} seleccion={aNombresDelCatalogo(v.tecnologias)} />
 			{errores.tecnologias && <span class="mt-1 block text-sm text-red-300">{errores.tecnologias[0]}</span>}
-		</label>
+		</div>
 	</div>
+
+	<label class="block">
+		<span class="text-sm text-tenue">Logros <span class="text-xs">(uno por línea: qué conseguiste, no qué usaste)</span></span>
+		<textarea name="logros" rows="3" placeholder={"Landing que carga en menos de 1 segundo\nPedidos directos por WhatsApp"} class:list={claseInput("logros")}>{v.logros}</textarea>
+	</label>
 
 	<div class="grid gap-6 sm:grid-cols-2">
 		<label class="block">
@@ -130,6 +137,49 @@ const claseInput = (campo: string) => [
 		</div>
 	</fieldset>
 
+	<!-- Galería (opcional): si no subes nada, el proyecto se ve como siempre -->
+	<fieldset class="rounded-xl border border-borde p-4">
+		<legend class="px-1 text-sm text-tenue">Galería <span class="text-xs">(opcional, hasta 12 imágenes: se muestran en un carrusel)</span></legend>
+		{
+			v.galeria.length > 0 && (
+				// El ORDEN de los inputs ocultos "ordenGaleria" es el orden en que se guardan.
+				// Los botones ← → mueven la foto (y su input) dentro de la lista
+				<ul data-galeria-actual class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+					{v.galeria.map((url, i) => (
+						<li class="space-y-1.5" data-foto>
+							<input type="hidden" name="ordenGaleria" value={url} />
+							<div class="relative">
+								<img src={url} alt="" class="aspect-video w-full rounded-md border border-borde object-cover" />
+								<span data-posicion class="absolute top-1 left-1 rounded bg-black/70 px-1.5 text-xs text-white">{i + 1}</span>
+							</div>
+							<div class="flex items-center justify-between gap-1">
+								<label class="flex items-center gap-1.5 text-xs text-tenue">
+									<input type="checkbox" name="quitarGaleria" value={url} class="accent-acento" />
+									Quitar
+								</label>
+								<span class="flex gap-1">
+									<button type="button" data-mover="-1" aria-label={`Mover la foto ${i + 1} antes`} class="grid size-7 place-items-center rounded-md border border-borde text-sm hover:border-acento/60 disabled:opacity-30">←</button>
+									<button type="button" data-mover="1" aria-label={`Mover la foto ${i + 1} después`} class="grid size-7 place-items-center rounded-md border border-borde text-sm hover:border-acento/60 disabled:opacity-30">→</button>
+								</span>
+							</div>
+						</li>
+					))}
+				</ul>
+			)
+		}
+		<input
+			type="file"
+			name="galeria"
+			multiple
+			accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+			class="block w-full text-sm text-tenue file:mr-3 file:rounded-md file:border-0 file:bg-acento file:px-3 file:py-1.5 file:text-white"
+		/>
+		<p class="mt-2 text-xs text-tenue">Puedes elegir varias a la vez. Las nuevas se agregan al final (después de guardar puedes reordenarlas con ← →). Se convierten a WebP de 1600 px al guardar.</p>
+		{errores.galeria && <p class="mt-2 text-sm text-red-300">{errores.galeria[0]}</p>}
+		<!-- Vista previa de las imágenes elegidas (antes de guardar) -->
+		<ul data-galeria-preview class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4"></ul>
+	</fieldset>
+
 	<!-- Contenido en Markdown, con pestañas Escribir / Vista previa -->
 	<div data-editor>
 		<div class="flex items-end justify-between">
@@ -152,6 +202,26 @@ const claseInput = (campo: string) => [
 		>
 		</div>
 	</div>
+
+	<!-- Inglés: plegable, para no llenar el formulario si no lo usas -->
+	<details class="rounded-xl border border-borde p-4" open={!!(v.resumenEn || v.contenidoEn || v.logrosEn) || undefined}>
+		<summary class="cursor-pointer text-sm text-tenue">English (opcional): si un campo queda vacío, en /en se muestra el español</summary>
+		<div class="mt-4 space-y-4">
+			<label class="block">
+				<span class="text-sm text-tenue">Summary <span class="text-xs">(máx. 160)</span></span>
+				<input name="resumenEn" value={v.resumenEn} maxlength="160" class:list={claseInput("resumenEn")} />
+				{errores.resumenEn && <span class="mt-1 block text-sm text-red-300">{errores.resumenEn[0]}</span>}
+			</label>
+			<label class="block">
+				<span class="text-sm text-tenue">Achievements <span class="text-xs">(uno por línea)</span></span>
+				<textarea name="logrosEn" rows="3" class:list={claseInput("logrosEn")}>{v.logrosEn}</textarea>
+			</label>
+			<label class="block">
+				<span class="text-sm text-tenue">Content <span class="text-xs">(Markdown)</span></span>
+				<textarea name="contenidoEn" rows="10" class:list={[claseInput("contenidoEn"), "font-mono text-sm"]}>{v.contenidoEn}</textarea>
+			</label>
+		</div>
+	</details>
 
 	<!-- Opciones -->
 	<div class="flex flex-wrap gap-6 text-sm">
@@ -207,6 +277,47 @@ const claseInput = (campo: string) => [
 		preview.src = URL.createObjectURL(elegido); // URL temporal al archivo local
 		preview.classList.remove("hidden");
 	});
+
+	// --- 2b. Vista previa de las imágenes nuevas de la galería ---
+	const inputGaleria = document.querySelector<HTMLInputElement>('input[name="galeria"]')!;
+	const previewGaleria = document.querySelector<HTMLUListElement>("[data-galeria-preview]")!;
+	inputGaleria.addEventListener("change", () => {
+		previewGaleria.querySelectorAll("img").forEach((img) => URL.revokeObjectURL(img.src)); // libera las anteriores
+		previewGaleria.replaceChildren(
+			...[...(inputGaleria.files ?? [])].map((archivo) => {
+				const li = document.createElement("li");
+				const img = document.createElement("img");
+				img.src = URL.createObjectURL(archivo);
+				img.alt = "";
+				img.className = "aspect-video w-full rounded-md border border-borde object-cover";
+				li.append(img);
+				return li;
+			}),
+		);
+	});
+
+	// --- 2c. Reordenar la galería: mover la foto (con su input oculto) en la lista ---
+	const listaGaleria = document.querySelector<HTMLUListElement>("[data-galeria-actual]");
+	const actualizarPosiciones = () => {
+		const fotos = [...(listaGaleria?.querySelectorAll<HTMLLIElement>("[data-foto]") ?? [])];
+		fotos.forEach((foto, i) => {
+			foto.querySelector("[data-posicion]")!.textContent = String(i + 1);
+			foto.querySelector<HTMLButtonElement>('[data-mover="-1"]')!.disabled = i === 0;
+			foto.querySelector<HTMLButtonElement>('[data-mover="1"]')!.disabled = i === fotos.length - 1;
+		});
+	};
+	listaGaleria?.addEventListener("click", (e) => {
+		const boton = (e.target as Element).closest<HTMLButtonElement>("[data-mover]");
+		if (!boton) return;
+		const foto = boton.closest<HTMLLIElement>("[data-foto]")!;
+		const vecina = boton.dataset.mover === "-1" ? foto.previousElementSibling : foto.nextElementSibling;
+		if (!vecina) return;
+		if (boton.dataset.mover === "-1") vecina.before(foto);
+		else vecina.after(foto);
+		actualizarPosiciones();
+		boton.focus(); // el foco sigue en el botón: puedes seguir moviendo con el teclado
+	});
+	actualizarPosiciones();
 
 	// --- 3. Pestañas Escribir / Vista previa ---
 	const textarea = document.querySelector<HTMLTextAreaElement>('textarea[name="contenido"]')!;

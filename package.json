@@ -15,15 +15,22 @@
     "prebuild": "node scripts/fix-old-cpu.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "admin:password": "node scripts/crear-admin.ts"
+    "admin:password": "node scripts/crear-admin.ts",
+    "test": "node --test src/lib/ src/i18n/"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.13",
+    "@astrojs/preact": "^6.1.6",
+    "@iconify-json/devicon": "^1.2.82",
+    "@iconify-json/logos": "^1.2.20",
+    "@iconify-json/lucide": "^1.2.156",
+    "@iconify/utils": "^3.1.7",
     "@tailwindcss/vite": "^4.3.5",
     "astro": "^7.4.12",
     "drizzle-orm": "^0.45.4",
     "marked": "^18.2.1",
     "postgres": "^4.1.1",
+    "preact": "^11.2.0",
     "sharp": "^0.35.5",
     "tailwindcss": "^4.3.5"
   },

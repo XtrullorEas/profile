@@ -1,15 +1,35 @@
 ---
-// Componente pequeño y reutilizable: una "pastilla" con texto.
-// Lo usaremos para tecnologías, y en la Fase 3 para las etiquetas de cada proyecto.
+// Pastilla de tecnología. Si la tecnología tiene logo (src/lib/tecnologias.ts):
+//   - solo el logo en un círculo claro (los logos oscuros no se verían sobre negro)
+//   - con conNombre: logo + nombre
+// Si no tiene logo (o es un hobby), una pastilla de texto.
+import Icono from "./Icono.astro";
+import { iconoDe } from "../lib/tecnologias";
+
 interface Props {
 	texto: string;
+	conNombre?: boolean;
 }
 
-const { texto } = Astro.props;
+const { texto, conNombre = false } = Astro.props;
+const icono = iconoDe(texto);
 ---
 
-<span
-	class="inline-block rounded-full border border-borde bg-superficie px-3 py-1 text-xs text-tenue"
->
-	{texto}
-</span>
+{
+	icono && !conNombre ? (
+		<span class="grid size-9 place-items-center rounded-full bg-neutral-100 ring-1 ring-black/5" title={texto}>
+			<Icono nombre={icono} class="size-5" titulo={texto} />
+		</span>
+	) : (
+		<span class="inline-flex items-center gap-2 rounded-full border border-borde py-1 pr-3 pl-1 text-sm text-tenue">
+			{icono ? (
+				<span class="grid size-7 place-items-center rounded-full bg-neutral-100">
+					<Icono nombre={icono} class="size-4" />
+				</span>
+			) : (
+				<span class="pl-2" />
+			)}
+			{texto}
+		</span>
+	)
+}

@@ -1,0 +1,60 @@
+---
+// Experiencia como línea de tiempo, dentro del Tracing Beam de nularUI:
+// la línea de la izquierda se va trazando mientras haces scroll por la sección.
+import type { Experiencia } from "../lib/db/schema";
+import { periodo, duracion } from "../lib/fechas";
+import Tag from "./Tag.astro";
+import Icono from "./Icono.astro";
+import TracingBeam from "./nular/TracingBeam.astro";
+import { idiomaDe, traducido } from "../i18n";
+
+interface Props {
+	trabajos: Experiencia[];
+}
+
+const { trabajos } = Astro.props;
+const idioma = idiomaDe(Astro.currentLocale);
+---
+
+<!-- pl: espacio a la izquierda para el riel del beam (va en "left: -1rem / -5rem") -->
+<div class="mt-12 pl-6 md:pl-20">
+	<TracingBeam>
+	<!-- En el móvil el riel queda dentro del contenido: pl-10 deja libre ese espacio -->
+	<ol class="space-y-16 pl-10 md:pl-0">
+		{
+			trabajos.map((t) => (
+				<li class="relative">
+
+					<p class="text-sm text-tenue">
+						{periodo(t.inicio, t.fin, idioma)} · {duracion(t.inicio, t.fin, idioma)}
+					</p>
+					<div class="mt-3 flex items-center gap-4">
+						{t.logo && <img src={t.logo} alt="" class="size-12 shrink-0 rounded-xl bg-white object-contain p-1.5" />}
+						<div>
+							<h3 class="text-2xl font-extrabold sm:text-3xl">{t.empresa}</h3>
+							<p class="text-tenue">{traducido(idioma, t.cargo, t.cargoEn)}</p>
+						</div>
+					</div>
+
+					{traducido(idioma, t.logros, t.logrosEn).length > 0 && (
+						<ul class="mt-5 space-y-2 text-tenue">
+							{traducido(idioma, t.logros, t.logrosEn).map((logro) => (
+								<li class="flex gap-2.5">
+									<Icono nombre="lucide:check" class="mt-1 size-4 shrink-0 text-green-600 dark:text-green-400" />
+									{logro}
+								</li>
+							))}
+						</ul>
+					)}
+
+					{t.tecnologias.length > 0 && (
+						<div class="mt-5 flex flex-wrap gap-2">
+							{t.tecnologias.map((tec) => <Tag texto={tec} />)}
+						</div>
+					)}
+				</li>
+			))
+		}
+	</ol>
+	</TracingBeam>
+</div>

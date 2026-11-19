@@ -27,7 +27,7 @@ const [proyecto] = await db.select().from(proyectos).where(eq(proyectos.id, id))
 if (!proyecto) return Astro.rewrite("/404");
 
 const valores = resultado?.error
-	? valoresDesdeFormData(await Astro.request.formData(), proyecto.portada)
+	? valoresDesdeFormData(await Astro.request.formData(), proyecto.portada, proyecto.galeria)
 	: valoresDesdeProyecto(proyecto);
 
 const errores = isInputError(resultado?.error) ? resultado.error.fields : {};

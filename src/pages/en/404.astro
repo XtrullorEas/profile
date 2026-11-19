@@ -1,0 +1,10 @@
+---
+// La 404 en inglés. No es la 404 "especial" de Astro (esa es src/pages/404.astro),
+// así que ponemos el código HTTP a mano: sin esto respondería 200.
+export const prerender = false;
+import NoEncontrado from "../../vistas/NoEncontrado.astro";
+
+Astro.response.status = 404;
+---
+
+<NoEncontrado idioma="en" />

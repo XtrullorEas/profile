@@ -1,0 +1,54 @@
+---
+// Lista de todos los proyectos publicados, con el filtro por tecnología.
+// La usan /proyectos y /en/proyectos.
+import BaseLayout from "../layouts/BaseLayout.astro";
+import ProjectCard from "../components/ProjectCard.astro";
+import FiltroTecnologias from "../components/FiltroTecnologias.tsx";
+import { getProyectos } from "../lib/proyectos";
+import { idiomaDe, traductor } from "../i18n";
+
+const idioma = idiomaDe(Astro.currentLocale);
+const t = traductor(idioma);
+
+// "await" en el frontmatter: se ejecuta en CADA petición (consulta a Postgres)
+const proyectos = await getProyectos();
+
+// Todas las tecnologías, sin repetir (Set) y en orden alfabético, para el filtro
+const tecnologias = [...new Set(proyectos.flatMap((p) => p.tecnologias))].sort((a, b) => a.localeCompare(b, idioma));
+---
+
+<BaseLayout title={t("proyectos.titulo").replace(".", "")} description={t("proyectos.descripcion")}>
+	<h1 class="pt-12 text-5xl font-extrabold sm:text-6xl">{t("proyectos.titulo")}</h1>
+	{
+		proyectos.length === 0 ? (
+			// "Estado vacío": mejor un mensaje que una página en blanco
+			<p class="mt-10 rounded-xl border border-dashed border-borde p-10 text-center text-tenue">{t("proyectos.vacio")}</p>
+		) : (
+			<>
+				<p class="mt-3 text-lg text-tenue">
+					{proyectos.length} {proyectos.length === 1 ? t("proyectos.uno") : t("proyectos.varios")}
+				</p>
+
+				{/* La ISLA. client:visible = Astro no carga su JavaScript hasta que el filtro
+				    aparece en pantalla. Sin "client:", Preact solo generaría HTML sin vida. */}
+				{tecnologias.length > 1 && (
+					<FiltroTecnologias
+						client:visible
+						tecnologias={tecnologias}
+						total={proyectos.length}
+						textos={{ todas: t("proyectos.todas"), de: t("proyectos.de"), con: t("proyectos.con") }}
+					/>
+				)}
+
+				<div class="mt-12 space-y-20">
+					{proyectos.map((proyecto, i) => (
+						// data-tecnologias: la isla lo lee para saber qué tarjetas mostrar
+						<div data-tecnologias={JSON.stringify(proyecto.tecnologias)}>
+							<ProjectCard proyecto={proyecto} numero={i + 1} />
+						</div>
+					))}
+				</div>
+			</>
+		)
+	}
+</BaseLayout>

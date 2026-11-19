@@ -1,0 +1,249 @@
+---
+/**
+ * Carousel — de nularUI (https://astro.nularui.dev/components/carousel/).
+ * Un carrusel de slides: el activo a escala y opacidad completas, los vecinos un poco
+ * atrás, en una pista flex que se traslada por índice (transición CSS, sin librerías).
+ * Los controles anterior/siguiente dan la vuelta en los dos extremos. Custom element.
+ *
+ * Adaptado para la GALERÍA de un proyecto:
+ *   - recibe imágenes (src + alt), sin título ni botón por slide
+ *   - formato 16:9 a todo el ancho (capturas de pantalla), no cuadrado de 22rem
+ *   - las imágenes se ven completas: sin el sobre-recorte del "tilt" ni el oscurecido
+ *     (son tu trabajo: no se tapan)
+ *   - contador "2 / 5" y textos de los botones en el idioma de la página
+ *   - colores del tema del sitio
+ */
+interface Imagen {
+  src: string;
+  alt: string;
+}
+
+interface Props {
+  /** Images to show, in order. The first one starts active. */
+  imagenes: Imagen[];
+  /** Textos en el idioma de la página. */
+  textos: { region: string; anterior: string; siguiente: string; de: string };
+  /** Additional classes for the root element. */
+  class?: string;
+}
+
+const { imagenes, textos, class: className } = Astro.props;
+const uid = `nui-carousel-${Math.random().toString(36).slice(2, 9)}`;
+---
+
+<nular-carousel class:list={['carousel', className]}>
+  <div
+    class="viewport"
+    id={uid}
+    role="region"
+    aria-roledescription="carousel"
+    aria-label={textos.region}
+  >
+    <ul class="track" role="presentation">
+      {
+        imagenes.map((imagen, index) => (
+          <li
+            class="slide"
+            data-active={index === 0 ? "" : undefined}
+            aria-hidden={index === 0 ? 'false' : 'true'}
+            role="group"
+            aria-roledescription="slide"
+            aria-label={`${index + 1} ${textos.de} ${imagenes.length}`}
+          >
+            <img
+              class="image"
+              src={imagen.src}
+              alt={imagen.alt}
+              loading={index === 0 ? 'eager' : 'lazy'}
+              decoding="async"
+            />
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+
+  {
+    imagenes.length > 1 && (
+      <div class="controls">
+        <button type="button" class="control control-prev" aria-label={textos.anterior} aria-controls={uid}>
+          <svg class="arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 5l7 7-7 7" />
+          </svg>
+        </button>
+        <!-- aria-live: el lector de pantalla anuncia "2 de 5" al cambiar -->
+        <span class="contador" aria-live="polite"><span data-actual>1</span> / {imagenes.length}</span>
+        <button type="button" class="control control-next" aria-label={textos.siguiente} aria-controls={uid}>
+          <svg class="arrow" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    )
+  }
+</nular-carousel>
+
+<style>
+  .carousel {
+    position: relative;
+    width: 100%;
+  }
+
+  .viewport {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 1px solid var(--color-borde);
+    border-radius: 1rem;
+    background: var(--color-superficie);
+    perspective: 1200px;
+  }
+
+  .track {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
+  }
+
+  .slide {
+    position: relative;
+    display: flex;
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    transform: scale(0.98) rotateX(6deg);
+    transform-origin: bottom;
+    transform-style: preserve-3d;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .slide[data-active] {
+    transform: scale(1) rotateX(0deg);
+  }
+
+  .image {
+    width: 100%;
+    height: 100%;
+    /* contain: la captura entera, aunque no sea exactamente 16:9 */
+    object-fit: contain;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+  }
+
+  .contador {
+    min-width: 3.5rem;
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--color-tenue);
+    font-variant-numeric: tabular-nums; /* los números no "bailan" al cambiar */
+  }
+
+  .control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background: var(--color-superficie);
+    color: var(--color-texto);
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .control:hover {
+    transform: translateY(-2px);
+  }
+
+  .control:active {
+    transform: translateY(2px);
+  }
+
+  .control:focus-visible {
+    outline: none;
+    border-color: var(--color-texto);
+  }
+
+  .control-prev .arrow {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .track,
+    .slide,
+    .control {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  class NularCarousel extends HTMLElement {
+    #abort: AbortController | null = null;
+    #track: HTMLElement | null = null;
+    #slides: HTMLElement[] = [];
+    #current = 0;
+
+    connectedCallback() {
+      this.#abort = new AbortController();
+      const { signal } = this.#abort;
+
+      this.#track = this.querySelector<HTMLElement>('.track');
+      this.#slides = [...this.querySelectorAll<HTMLElement>('.slide')];
+
+      const activeIndex = this.#slides.findIndex((slide) => slide.hasAttribute('data-active'));
+      this.#current = activeIndex === -1 ? 0 : activeIndex;
+
+      this.querySelector('.control-prev')?.addEventListener('click', () => this.#go(-1), { signal });
+      this.querySelector('.control-next')?.addEventListener('click', () => this.#go(1), { signal });
+    }
+
+    disconnectedCallback() {
+      this.#abort?.abort();
+    }
+
+    #go(direction: number) {
+      const count = this.#slides.length;
+      if (count < 2) return;
+
+      this.#current = (this.#current + direction + count) % count;
+      this.#render();
+    }
+
+    #render() {
+      if (this.#track) {
+        this.#track.style.transform = `translateX(-${this.#current * 100}%)`;
+      }
+
+      this.#slides.forEach((slide, index) => {
+        const active = index === this.#current;
+        if (active) {
+          slide.setAttribute('data-active', '');
+        } else {
+          slide.removeAttribute('data-active');
+        }
+        slide.setAttribute('aria-hidden', active ? 'false' : 'true');
+      });
+
+      const actual = this.querySelector('[data-actual]');
+      if (actual) actual.textContent = String(this.#current + 1);
+    }
+  }
+
+  if (!customElements.get('nular-carousel')) {
+    customElements.define('nular-carousel', NularCarousel);
+  }
+</script>

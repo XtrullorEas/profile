@@ -1,0 +1,338 @@
+---
+/**
+ * FloatingNavbar — de nularUI (https://astro.nularui.dev/components/floating-navbar/).
+ * Una píldora centrada, fija arriba. Un listener pasivo de scroll compara la posición
+ * con la anterior y activa/quita `data-hidden`: visible al subir, oculta al bajar.
+ * Una transición CSS hace el deslizamiento; sin librerías.
+ *
+ * Adaptado para este portfolio:
+ *   - a la izquierda tu logo (versión para fondo oscuro o claro según el tema);
+ *     en el móvil, solo el ícono
+ *   - el botón "Login" pasa a ser el enlace "Contacto"
+ *   - botones para cambiar de idioma (ES/EN) y de tema (☀/☾)
+ *   - arriba del todo se MUESTRA (el original la oculta): en la portada hace falta el menú
+ *   - colores del sitio (tokens) en vez de los del original (cian → violeta)
+ */
+import Icono from "../Icono.astro";
+import { traductor, ruta, type Idioma } from "../../i18n";
+
+interface NavItem {
+  /** Label. */
+  name: string;
+  /** Destination for the link. */
+  link: string;
+  /** Hide on narrow viewports (no room in the pill). */
+  soloEscritorio?: boolean;
+}
+
+interface Props {
+  idioma: Idioma;
+  /** La página actual en el otro idioma (para el botón ES/EN). */
+  enOtroIdioma: string;
+  /** Nav entries rendered before the divider and the Contact button. */
+  navItems: NavItem[];
+  /** Additional classes for the root element. */
+  class?: string;
+}
+
+const { idioma, enOtroIdioma, navItems, class: className } = Astro.props;
+const t = traductor(idioma);
+const otro = idioma === "es" ? "en" : "es";
+---
+
+<nular-floating-navbar class:list={['nular-floating-navbar', className]}>
+  <nav class="pill" aria-label={idioma === "es" ? "Principal" : "Main"}>
+    <a class="marca" href={ruta(idioma, "/")} aria-label={`moloeas, ${t("menu.inicio")}`}>
+      <!-- logo-dark tiene el texto blanco (fondo oscuro); logo-light, azul oscuro (fondo claro) -->
+      <img class="logo en-oscuro" src="/logo-dark.svg" alt="" width="880" height="246" />
+      <img class="logo en-claro" src="/logo-light.svg" alt="" width="880" height="246" />
+    </a>
+    <div class="divider" aria-hidden="true"></div>
+    <div class="links">
+      {
+        navItems.map((item) => (
+          <a class:list={['link', { 'solo-escritorio': item.soloEscritorio }]} href={item.link}>
+            {item.name}
+          </a>
+        ))
+      }
+    </div>
+    <div class="divider" aria-hidden="true"></div>
+    <!-- hreflang + lang: el lector de pantalla pronuncia "English" en inglés -->
+    <a class="boton" href={enOtroIdioma} hreflang={otro} lang={otro} aria-label={t("menu.idioma")} title={t("menu.idioma")}>
+      {otro.toUpperCase()}
+    </a>
+    <button class="boton" type="button" data-cambiar-tema aria-label={t("menu.tema")} title={t("menu.tema")}>
+      <span class="en-oscuro"><Icono nombre="lucide:sun" class="size-4" /></span>
+      <span class="en-claro"><Icono nombre="lucide:moon" class="size-4" /></span>
+    </button>
+    <a class="login" href={ruta(idioma, "/#contacto")}>
+      <span>{t("menu.contacto")}</span>
+    </a>
+  </nav>
+</nular-floating-navbar>
+
+<style>
+  .nular-floating-navbar {
+    position: fixed;
+    top: 1rem;
+    left: 0;
+    right: 0;
+    z-index: 5000;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    padding: 0 1rem;
+    pointer-events: none;
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      transform 200ms ease,
+      opacity 200ms ease;
+  }
+
+  .nular-floating-navbar[data-hidden] {
+    transform: translateY(-100px);
+    opacity: 0;
+  }
+
+  .pill {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid var(--color-borde);
+    /* el fondo de la página, semitransparente, para el efecto vidrio */
+    background-color: color-mix(in srgb, var(--color-fondo) 60%, transparent);
+    box-shadow:
+      0 10px 15px -3px rgb(0 0 0 / 0.1),
+      0 4px 6px -4px rgb(0 0 0 / 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .marca {
+    display: flex;
+    align-items: center;
+    padding: 0 0.25rem 0 0.375rem;
+  }
+
+  /* En el móvil: solo el ícono. La imagen es el logo entero, pero la caja mide
+     lo que el ícono (su ~28% izquierdo) y object-fit/position recortan el resto. */
+  .logo {
+    width: 1.85rem;
+    height: 1.75rem;
+    object-fit: cover;
+    object-position: left center;
+  }
+
+  @media (min-width: 640px) {
+    .logo {
+      width: auto; /* logo completo: el ancho sale de la proporción 880×246 */
+    }
+  }
+
+  /* Cada logo/ícono solo en su tema */
+  :global([data-theme="light"]) .en-oscuro,
+  :global([data-theme="dark"]) .en-claro {
+    display: none;
+  }
+
+  .links {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+  }
+
+  .link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap; /* "Sobre mí" nunca en dos líneas */
+    color: var(--color-tenue);
+    text-decoration: none;
+    transition:
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .link:hover,
+  .boton:hover {
+    background-color: color-mix(in srgb, var(--color-texto) 10%, transparent);
+    color: var(--color-texto);
+  }
+
+  /* Botones redondos de idioma y tema */
+  .boton {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-tenue);
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  /* En el móvil no entran todos: algunos enlaces se ocultan */
+  .solo-escritorio {
+    display: none;
+  }
+
+  @media (min-width: 640px) {
+    .solo-escritorio {
+      display: flex;
+    }
+    .link {
+      padding: 0.5rem 0.875rem;
+    }
+  }
+
+  .divider {
+    width: 1px;
+    height: 1.25rem;
+    background-color: var(--color-borde);
+  }
+
+  .login {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--color-texto) 25%, transparent);
+    border-radius: 9999px;
+    background: transparent;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--color-texto);
+    text-decoration: none;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+
+  .login:hover {
+    background-color: color-mix(in srgb, var(--color-texto) 10%, transparent);
+  }
+
+  .login::after {
+    content: '';
+    position: absolute;
+    left: 16%;
+    right: 16%;
+    bottom: 3px;
+    height: 2px;
+    border-radius: 9999px;
+    /* Original: transparent, #18ccfc, #6344f5, transparent */
+    background: linear-gradient(90deg, transparent, var(--color-texto), var(--color-tenue), transparent);
+    opacity: 0.9;
+  }
+
+  /* Móviles pequeños (360 px): menos aire para que todo entre en una línea */
+  @media (max-width: 399px) {
+    .nular-floating-navbar {
+      padding: 0 0.5rem;
+    }
+    .pill {
+      gap: 0.25rem;
+      padding: 0.25rem 0.375rem;
+    }
+    .link {
+      padding: 0.5rem 0.5rem;
+    }
+    .login {
+      padding: 0.5rem 0.75rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nular-floating-navbar {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  class NularFloatingNavbar extends HTMLElement {
+    #abort: AbortController | null = null;
+    #lastScrollY = 0;
+
+    connectedCallback() {
+      this.#abort = new AbortController();
+      const signal = this.#abort.signal;
+      this.#lastScrollY = window.scrollY;
+      window.addEventListener('scroll', this.#onScroll, { passive: true, signal });
+      // Si navegas con el teclado (Tab) dentro del menú, que se vea
+      this.addEventListener('focusin', () => this.removeAttribute('data-hidden'), { signal });
+
+      // Botón de tema: alterna, aplica y RECUERDA la elección (localStorage)
+      this.querySelector('[data-cambiar-tema]')?.addEventListener(
+        'click',
+        () => {
+          const raiz = document.documentElement;
+          const nuevo = raiz.dataset.theme === 'dark' ? 'light' : 'dark';
+          raiz.dataset.theme = nuevo;
+          try {
+            localStorage.setItem('tema', nuevo);
+          } catch {}
+        },
+        { signal },
+      );
+
+      // Si nunca elegiste tema y cambias el de tu sistema, la página lo sigue en vivo
+      matchMedia('(prefers-color-scheme: dark)').addEventListener(
+        'change',
+        (e) => {
+          let elegido = null;
+          try {
+            elegido = localStorage.getItem('tema');
+          } catch {}
+          if (!elegido) document.documentElement.dataset.theme = e.matches ? 'dark' : 'light';
+        },
+        { signal },
+      );
+
+      this.#onScroll();
+    }
+
+    disconnectedCallback() {
+      this.#abort?.abort();
+      this.#abort = null;
+    }
+
+    #onScroll = () => {
+      const y = window.scrollY;
+      const direction = y - this.#lastScrollY;
+      this.#lastScrollY = y;
+
+      // Cambio respecto al original: arriba del todo, visible (el original la oculta)
+      if (y < 120) {
+        this.removeAttribute('data-hidden');
+      } else if (direction < 0) {
+        this.removeAttribute('data-hidden');
+      } else if (direction > 0) {
+        this.setAttribute('data-hidden', '');
+      }
+    };
+  }
+
+  if (!customElements.get('nular-floating-navbar')) {
+    customElements.define('nular-floating-navbar', NularFloatingNavbar);
+  }
+</script>

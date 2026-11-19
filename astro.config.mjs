@@ -1,8 +1,10 @@
 // @ts-check
-import { defineConfig, envField } from 'astro/config';
+import { defineConfig, envField, fontProviders } from 'astro/config';
 
 import tailwindcss from '@tailwindcss/vite';
 import node from '@astrojs/node';
+
+import preact from '@astrojs/preact';
 
 // https://astro.build/config
 export default defineConfig({
@@ -17,8 +19,9 @@ export default defineConfig({
   security: {
     allowedDomains: [{ hostname: 'portfolio.moloeas.com', protocol: 'https' }],
     // Tamaño máximo de lo que se envía a una Action. Por defecto es 1 MB,
-    // poco para subir una portada (las fotos del móvil pesan 3-5 MB).
-    actionBodySizeLimit: 10 * 1024 * 1024, // 10 MB
+    // poco para subir imágenes (las fotos del móvil pesan 3-5 MB, y la galería
+    // puede llevar varias en un solo envío).
+    actionBodySizeLimit: 60 * 1024 * 1024, // 60 MB
   },
 
   server: {
@@ -32,9 +35,43 @@ export default defineConfig({
       allowedHosts: ['moloeas-srv'],
     },
 
+  // Idiomas: español en "/" (sin prefijo) e inglés en "/en/".
+  // Astro.currentLocale dice en qué idioma está cada página.
+  i18n: {
+    locales: ['es', 'en'],
+    defaultLocale: 'es',
+    routing: { prefixDefaultLocale: false },
+  },
+
+  // /sobre-mi ahora es una sección de la landing: los enlaces viejos no dan 404
+  redirects: {
+    '/sobre-mi': '/#sobre-mi',
+  },
+
   vite: {
     plugins: [tailwindcss()],
   },
+
+  // Fuentes: Astro las descarga de Google al compilar y las sirve desde TU sitio
+  // (más rápido y sin que el visitante se conecte a Google). Se usan con <Font /> en el layout.
+  fonts: [
+    {
+      provider: fontProviders.google(),
+      name: 'Outfit', // geométrica: títulos enormes y en negrita, como en Behance
+      cssVariable: '--font-outfit',
+      weights: ['400 900'], // fuente "variable": un solo archivo con todos los grosores
+      subsets: ['latin'], // incluye tildes y ñ
+      fallbacks: ['sans-serif'],
+    },
+    {
+      provider: fontProviders.google(),
+      name: 'DM Serif Display', // solo para los números 01, 02... de los proyectos
+      cssVariable: '--font-dmserif',
+      weights: ['400'],
+      subsets: ['latin'],
+      fallbacks: ['serif'],
+    },
+  ],
 
   // Variables de entorno con tipo y validación.
   //  context "server" + access "secret" = solo se lee en el servidor, en tiempo de
@@ -62,4 +99,6 @@ export default defineConfig({
   adapter: node({
     mode: 'standalone',
   }),
+
+  integrations: [preact()],
 });

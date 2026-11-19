@@ -1,0 +1,203 @@
+---
+/**
+ * FlipWords — an inline word that cycles: each new word bounces in with a
+ * per-letter blur stagger while the old one flies up and away through a
+ * blur. A small custom element rebuilds the letter spans; all motion is
+ * CSS keyframes.
+ *
+ * De nularUI (https://astro.nularui.dev/components/flip-words/). Adaptado:
+ *   - color del tema del sitio (inherit) en vez de #171717 / #f5f5f5
+ *   - sin sangría y sin espacio tras la última palabra (el punto queda pegado)
+ *   - accesible: los lectores de pantalla leen `texto` (la lista completa, una vez)
+ *     y no la palabra que cambia cada 3 segundos
+ */
+interface Props {
+  /** Words to cycle through. */
+  words: string[];
+  /** Texto completo para lectores de pantalla ("Fullstack, automatización y agentes de IA"). */
+  texto: string;
+  /** Milliseconds each word stays. */
+  duration?: number;
+  /** Additional classes for the root element. */
+  class?: string;
+}
+
+const { words, texto, duration = 3000, class: className } = Astro.props;
+
+const first = words[0] ?? '';
+---
+
+<span class="sr-only">{texto}</span>
+<nular-flip-words
+  class={className}
+  data-words={JSON.stringify(words)}
+  data-duration={duration}
+  aria-hidden="true"
+>
+  <span class="word enter">
+    {
+      first.split(' ').map((word, wordIndex, todas) => (
+        <span class="chunk">
+          {word.split('').map((letter, letterIndex) => (
+            <span
+              class="letter"
+              style={`--d: ${(wordIndex * 0.3 + letterIndex * 0.05).toFixed(2)}s;`}
+            >
+              {letter}
+            </span>
+          ))}
+          {wordIndex < todas.length - 1 && <span class="space">&nbsp;</span>}
+        </span>
+      ))
+    }
+  </span>
+</nular-flip-words>
+
+<style>
+  nular-flip-words {
+    position: relative;
+    z-index: 10;
+    display: inline-block;
+    text-align: left;
+    color: inherit; /* original: #171717 (y #f5f5f5 en oscuro) */
+  }
+
+  nular-flip-words :global(.word) {
+    display: inline-block;
+    padding: 0; /* original: 0 0.5rem (sangraba el inicio de la frase) */
+  }
+
+  nular-flip-words :global(.word.enter) {
+    animation: nui-fw-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  nular-flip-words :global(.word.exit) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    animation: nui-fw-out 0.4s ease both;
+  }
+
+  nular-flip-words :global(.chunk) {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  nular-flip-words :global(.letter) {
+    display: inline-block;
+    animation: nui-fw-letter 0.2s both;
+    animation-delay: var(--d, 0s);
+  }
+
+  nular-flip-words :global(.space) {
+    display: inline-block;
+  }
+
+  @keyframes nui-fw-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes nui-fw-letter {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+      filter: blur(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes nui-fw-out {
+    to {
+      opacity: 0;
+      transform: translate(40px, -40px) scale(2);
+      filter: blur(8px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    nular-flip-words :global(.word.enter),
+    nular-flip-words :global(.word.exit),
+    nular-flip-words :global(.letter) {
+      animation: none;
+    }
+
+    nular-flip-words :global(.word.exit) {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  class NularFlipWords extends HTMLElement {
+    #timer = 0;
+    #index = 0;
+
+    connectedCallback() {
+      const duration = Number(this.dataset.duration ?? 3000);
+      this.#timer = window.setInterval(() => this.#cycle(), duration);
+    }
+
+    disconnectedCallback() {
+      clearInterval(this.#timer);
+    }
+
+    #cycle() {
+      let words: string[] = [];
+      try {
+        words = JSON.parse(this.dataset.words ?? '[]') as string[];
+      } catch {
+        return;
+      }
+      if (words.length < 2) return;
+
+      const current = this.querySelector<HTMLElement>('.word:not(.exit)');
+      if (!current) return;
+      this.#index = (this.#index + 1) % words.length;
+
+      current.classList.remove('enter');
+      current.classList.add('exit');
+      window.setTimeout(() => current.remove(), 500);
+
+      const next = document.createElement('span');
+      next.className = 'word enter';
+      const partes = words[this.#index]!.split(' ');
+      partes.forEach((word, wordIndex) => {
+        const chunk = document.createElement('span');
+        chunk.className = 'chunk';
+        word.split('').forEach((letter, letterIndex) => {
+          const span = document.createElement('span');
+          span.className = 'letter';
+          span.style.setProperty(
+            '--d',
+            `${(wordIndex * 0.3 + letterIndex * 0.05).toFixed(2)}s`,
+          );
+          span.textContent = letter;
+          chunk.appendChild(span);
+        });
+        if (wordIndex < partes.length - 1) {
+          const space = document.createElement('span');
+          space.className = 'space';
+          space.innerHTML = '&nbsp;';
+          chunk.appendChild(space);
+        }
+        next.appendChild(chunk);
+      });
+      this.appendChild(next);
+    }
+  }
+
+  if (!customElements.get('nular-flip-words')) {
+    customElements.define('nular-flip-words', NularFlipWords);
+  }
+</script>

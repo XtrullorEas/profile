@@ -1,0 +1,1 @@
+ALTER TABLE "proyectos" ADD COLUMN "galeria" text[] DEFAULT '{}' NOT NULL;

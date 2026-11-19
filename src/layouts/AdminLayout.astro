@@ -1,6 +1,7 @@
 ---
 // Layout del panel: distinto al del sitio público (sin Header/Footer del portfolio).
 import "../styles/global.css";
+import { Font } from "astro:assets";
 
 interface Props {
 	title: string;
@@ -11,9 +12,12 @@ const { title } = Astro.props;
 const { usuario } = Astro.locals;
 ---
 
-<html lang="es">
+<!-- El panel siempre en oscuro -->
+<html lang="es" data-theme="dark">
 	<head>
 		<meta charset="utf-8" />
+		<!-- Carga la fuente de títulos. preload: el navegador la pide antes, sin "parpadeo" -->
+		<Font cssVariable="--font-outfit" preload />
 		<meta name="viewport" content="width=device-width" />
 		<meta name="robots" content="noindex" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -28,6 +32,9 @@ const { usuario } = Astro.locals;
 							<a href="/admin" class="font-bold">
 								Admin<span class="text-acento">.</span>
 							</a>
+							<a href="/admin" class="text-tenue hover:text-texto">Proyectos</a>
+							<a href="/admin/experiencia" class="text-tenue hover:text-texto">Experiencia</a>
+							<a href="/admin/perfil" class="text-tenue hover:text-texto">Perfil</a>
 							<a href="/" target="_blank" class="text-tenue hover:text-texto">
 								Ver sitio ↗
 							</a>
@@ -53,3 +60,19 @@ const { usuario } = Astro.locals;
 		</main>
 	</body>
 </html>
+
+<script>
+	// Vista previa de imágenes para TODO el admin: al elegir un archivo en
+	// <input type="file" name="logo">, se muestra en <img data-preview="logo">.
+	// Un solo listener en document ("delegación") sirve para cualquier formulario.
+	document.addEventListener("change", (e) => {
+		const input = e.target;
+		if (!(input instanceof HTMLInputElement) || input.type !== "file") return;
+		const img = document.querySelector<HTMLImageElement>(`img[data-preview="${input.name}"]`);
+		const archivo = input.files?.[0];
+		if (!img || !archivo) return;
+		URL.revokeObjectURL(img.src); // libera la vista previa anterior (si era una)
+		img.src = URL.createObjectURL(archivo); // URL temporal al archivo de tu disco
+		img.hidden = false;
+	});
+</script>

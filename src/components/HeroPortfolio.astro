@@ -1,0 +1,84 @@
+---
+// Portada estilo Behance: "Port" DETRÁS de tu foto y "Folio" DELANTE.
+// Las tres capas ocupan la MISMA celda de una grilla (grid-area: 1/1) y se
+// ordenan con z-index:  Port (0)  <  foto (10)  <  Folio (20).
+// Funciona mejor con una foto SIN fondo (PNG transparente).
+interface Props {
+	nombre: string;
+	rol: string;
+	foto: string | null;
+	textoFoto: string; // "Foto de" / "Photo of"
+}
+
+const { nombre, rol, foto, textoFoto } = Astro.props;
+---
+
+<!-- bg-fondo + isolate: la portada tiene su propio fondo y forma un grupo aparte.
+     Sin esto, el mix-blend-mode de "Folio" (tema claro) no "ve" el fondo blanco. -->
+<section class="relative isolate mx-auto grid bg-fondo min-h-[min(calc(100svh-5rem),54rem)] max-w-6xl px-4 pt-20 *:[grid-area:1/1]">
+	<!-- El título real, para buscadores y lectores de pantalla. "Port" y "Folio" son decoración -->
+	<h1 class="sr-only">{nombre}, {rol}</h1>
+
+	<p aria-hidden="true" class="palabra z-0 mt-[6svh] self-start justify-self-start">Port</p>
+
+	{
+		foto && (
+			<img
+				src={foto}
+				alt={`${textoFoto} ${nombre}`}
+				fetchpriority="high"
+				class="foto z-10 self-end justify-self-center"
+			/>
+		)
+	}
+
+	<div class="delante z-20 mb-[7svh] self-end justify-self-end text-right">
+		<p aria-hidden="true" class="palabra">Folio</p>
+		<p class="rol mt-3 pr-1 text-base tracking-wide text-tenue sm:text-lg">• {rol} •</p>
+	</div>
+</section>
+
+<style>
+	.palabra {
+		font-family: var(--font-titulo);
+		font-weight: 900;
+		line-height: 0.8;
+		letter-spacing: -0.04em;
+		/* clamp(mínimo, ideal, máximo): crece con el ancho de la pantalla, con límites */
+		font-size: clamp(5.5rem, 19vw, 16rem);
+	}
+
+	/* Tema claro: "Folio" negro sobre tu buzo oscuro no se leería. Con "difference"
+	   el blanco se invierte según lo que tenga detrás: oscuro sobre el fondo blanco,
+	   claro sobre la foto. Va en el CONTENEDOR: como tiene z-index, es un grupo de
+	   dibujo propio, y el blend tiene que estar en él para "ver" la foto y el fondo. */
+	:global([data-theme="light"]) .delante {
+		color: #fff;
+		mix-blend-mode: difference;
+	}
+	:global([data-theme="light"]) .delante .rol {
+		color: #fff;
+		opacity: 0.7;
+	}
+
+	.foto {
+		height: min(80svh, 46rem);
+		width: auto;
+		max-width: 100%;
+		object-fit: contain;
+		/* la foto se funde con el fondo hacia abajo, sin un borde de corte visible */
+		mask-image: linear-gradient(to bottom, black 72%, transparent);
+	}
+
+	/* En pantallas medianas la foto ya no llega al borde: desvanecemos también su lado
+	   derecho, donde la imagen corta el hombro. "intersect": solo se ve lo que dejan
+	   ver LAS DOS máscaras a la vez */
+	@media (min-width: 640px) {
+		.foto {
+			mask-image:
+				linear-gradient(to bottom, black 72%, transparent),
+				linear-gradient(to left, transparent, black 14%);
+			mask-composite: intersect;
+		}
+	}
+</style>

@@ -1,36 +1,80 @@
 ---
 // Importar el CSS aquí hace que llegue a TODAS las páginas que usan este layout
 import "../styles/global.css";
-import Header from "../components/Header.astro";
+import { Font } from "astro:assets";
+import FloatingNavbar from "../components/nular/FloatingNavbar.astro";
 import Footer from "../components/Footer.astro";
+import { getPerfil } from "../lib/perfil";
+import { idiomaDe, traductor, traducido, ruta, rutaEnOtroIdioma } from "../i18n";
 
 interface Props {
 	title: string;
 	description?: string; // el "?" la hace opcional
+	/** "estrecho": columna de lectura centrada. "completo": la página decide los anchos (landing) */
+	ancho?: "estrecho" | "completo";
 }
 
-// Valor por defecto si la página no pasa description
-const { title, description = "Portfolio de Elías, desarrollador web." } = Astro.props;
+const { title, description, ancho = "estrecho" } = Astro.props;
+// El idioma sale de la URL: "/en/..." → "en". Lo da Astro gracias a i18n en astro.config.mjs
+const idioma = idiomaDe(Astro.currentLocale);
+const t = traductor(idioma);
+// Tu nombre sale del perfil (lo cambias en /admin/perfil). Todas las páginas se
+// generan bajo demanda, así que esta consulta corre en cada visita.
+const perfil = await getPerfil();
+const rol = traducido(idioma, perfil.rol, perfil.rolEn);
+
+// Para buscadores: la misma página en cada idioma (hreflang)
+const pathname = Astro.url.pathname;
+const enOtroIdioma = rutaEnOtroIdioma(pathname, idioma);
+const alternativas = { es: idioma === "es" ? pathname : enOtroIdioma, en: idioma === "en" ? pathname : enOtroIdioma };
 ---
 
-<html lang="es">
+<html lang={idioma}>
 	<head>
 		<meta charset="utf-8" />
+		<!--
+			Tema ANTES de dibujar: si no, la página aparecería un instante en el tema
+			equivocado ("flash"). is:inline = Astro no lo procesa ni lo mueve: corre aquí, ya.
+		-->
+		<script is:inline>
+			(() => {
+				let elegido = null;
+				try {
+					elegido = localStorage.getItem("tema");
+				} catch {}
+				const sistema = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+				document.documentElement.dataset.theme = elegido === "light" || elegido === "dark" ? elegido : sistema;
+			})();
+		</script>
+		<!-- Carga la fuente de títulos. preload: el navegador la pide antes, sin "parpadeo" -->
+		<Font cssVariable="--font-outfit" preload />
+		<Font cssVariable="--font-dmserif" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="viewport" content="width=device-width" />
-		<title>{title} | Elías</title>
-		<meta name="description" content={description} />
+		<title>{title} | {perfil.nombre}</title>
+		<meta name="description" content={description ?? `${perfil.nombre}, ${rol}.`} />
+		<link rel="alternate" hreflang="es" href={new URL(alternativas.es, Astro.site)} />
+		<link rel="alternate" hreflang="en" href={new URL(alternativas.en, Astro.site)} />
 	</head>
 	<!-- min-h-screen + flex-col: el footer queda abajo aunque haya poco contenido -->
-	<body class="flex min-h-screen flex-col">
-		<Header />
+	<!-- overflow-x-clip: nada genera scroll horizontal en el móvil -->
+	<body class="flex min-h-screen flex-col overflow-x-clip">
+		<!-- Menú de nularUI: fijo arriba, se esconde al bajar y vuelve al subir -->
+		<FloatingNavbar
+			idioma={idioma}
+			enOtroIdioma={enOtroIdioma}
+			navItems={[
+				{ name: t("menu.sobreMi"), link: ruta(idioma, "/#sobre-mi"), soloEscritorio: true },
+				{ name: t("menu.experiencia"), link: ruta(idioma, "/#experiencia"), soloEscritorio: true },
+				{ name: t("menu.proyectos"), link: ruta(idioma, "/#proyectos") },
+			]}
+		/>
 
-		<!-- mx-auto + max-w-3xl: centrado y con ancho máximo. px-4: margen lateral en móvil -->
-		<main class="mx-auto w-full max-w-3xl flex-1 px-4 py-12">
+		<main class:list={["w-full flex-1", ancho === "estrecho" && "mx-auto max-w-3xl px-4 pt-24 pb-16"]}>
 			<!-- 👇 Aquí se inyecta el contenido que la página pone DENTRO de <BaseLayout> -->
 			<slot />
 		</main>
 
-		<Footer nombre="Elías" />
+		<Footer nombre={perfil.nombre} texto={t("pie.hecho")} />
 	</body>
 </html>

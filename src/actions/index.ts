@@ -12,7 +12,7 @@ import { defineAction, ActionError, type ActionAPIContext } from "astro:actions"
 import { z } from "astro/zod";
 import { eq } from "drizzle-orm";
 import { db } from "../lib/db";
-import { proyectos } from "../lib/db/schema";
+import { proyectos, perfil, experiencia } from "../lib/db/schema";
 import { markdownAHtml } from "../lib/proyectos";
 import { guardarPortada, borrarPortada, TIPOS_PERMITIDOS, TAMANO_MAXIMO } from "../lib/uploads";
 
@@ -41,6 +41,22 @@ function slugificar(texto: string) {
 		.slice(0, 120);
 }
 
+/** Texto → lista sin vacíos. separador "," para tecnologías, salto de línea para logros. */
+const lista = (separador: string | RegExp) =>
+	// nullish: como hay un .transform(), Astro no "ve" un .optional() y manda null si está vacío
+	z
+		.string()
+		.nullish()
+		.transform((texto) =>
+			(texto ?? "")
+				.split(separador)
+				.map((t) => t.trim())
+				.filter(Boolean),
+		);
+
+/** Texto opcional en inglés: vacío → undefined (y se guarda null: /en usará el español). */
+const textoEn = (max?: number) => (max ? z.string().trim().max(max, `Máximo ${max} caracteres`) : z.string().trim()).optional();
+
 // Campos de texto opcionales: un input vacío llega como undefined (no como "").
 const urlOpcional = z.url({ error: "Debe ser una URL completa (https://...)" }).max(255).optional();
 
@@ -67,17 +83,13 @@ const camposProyecto = z.object({
 	// <input type="date"> envía "2026-11-10"
 	fecha: z.iso.date({ error: "La fecha es obligatoria" }),
 	// "HTML, CSS, JavaScript" → ["HTML", "CSS", "JavaScript"]
-	// nullish (= null o undefined): como hay un .transform(), Astro no "ve" un .optional()
-	// y convierte el input vacío en null en vez de undefined.
-	tecnologias: z
-		.string()
-		.nullish()
-		.transform((texto) =>
-			(texto ?? "")
-				.split(",")
-				.map((t) => t.trim())
-				.filter(Boolean),
-		),
+	tecnologias: lista(","),
+	// Un logro por línea del textarea
+	logros: lista(/\r?\n/),
+	// Inglés (opcional)
+	resumenEn: textoEn(160),
+	contenidoEn: textoEn(),
+	logrosEn: lista(/\r?\n/),
 	repo: urlOpcional,
 	demo: urlOpcional,
 	// Checkboxes: Astro los convierte a true (marcado) / false (no marcado)
@@ -90,9 +102,57 @@ const camposProyecto = z.object({
 		.optional()
 		.refine((f) => !f || f.size === 0 || TIPOS_PERMITIDOS.includes(f.type), "Formato no soportado (usa JPG, PNG, WebP, AVIF o GIF)")
 		.refine((f) => !f || f.size <= TAMANO_MAXIMO, "La imagen pesa más de 8 MB"),
+	// Galería: imágenes nuevas (input "multiple") y las que marcaste para quitar.
+	// Si no se envía nada, Astro da [] (con un array, getAll devuelve todos los valores).
+	galeria: z
+		.array(z.instanceof(File))
+		.refine((fs) => fs.every((f) => f.size === 0 || TIPOS_PERMITIDOS.includes(f.type)), "Alguna imagen tiene un formato no soportado (usa JPG, PNG, WebP, AVIF o GIF)")
+		.refine((fs) => fs.every((f) => f.size <= TAMANO_MAXIMO), "Alguna imagen de la galería pesa más de 8 MB"),
+	quitarGaleria: z.array(z.string()),
+	// El orden de la galería actual (un valor por foto, en el orden elegido con ← →)
+	ordenGaleria: z.array(z.string()),
 });
 
 type CamposProyecto = z.infer<typeof camposProyecto>;
+
+/** Mismo control que la portada, para el logo de una empresa y tu foto. */
+const imagenOpcional = camposProyecto.shape.portada;
+
+// <input type="month"> envía "2024-03" (año-mes, sin día)
+const MES = /^\d{4}-(0[1-9]|1[0-2])$/;
+const mes = (error: string) => z.string({ error }).regex(MES, error);
+
+const camposExperiencia = z.object({
+	empresa: z.string({ error: "La empresa es obligatoria" }).trim().min(1, "La empresa es obligatoria").max(120),
+	cargo: z.string({ error: "El cargo es obligatorio" }).trim().min(1, "El cargo es obligatorio").max(120),
+	cargoEn: textoEn(120),
+	inicio: mes("Elige el mes y año de inicio"),
+	fin: mes("Mes no válido").optional(), // vacío = trabajo actual
+	logros: lista(/\r?\n/),
+	logrosEn: lista(/\r?\n/),
+	tecnologias: lista(","),
+	logo: imagenOpcional,
+	quitarLogo: z.boolean(),
+});
+
+/** Convierte lo validado en una fila de experiencia (sin el logo). */
+function aFilaExperiencia(d: z.infer<typeof camposExperiencia>) {
+	const fila = {
+		empresa: d.empresa,
+		cargo: d.cargo,
+		cargoEn: d.cargoEn || null,
+		// Se guarda como el día 1 de ese mes (la columna es "date")
+		inicio: new Date(`${d.inicio}-01`),
+		fin: d.fin ? new Date(`${d.fin}-01`) : null,
+		logros: d.logros,
+		logrosEn: d.logrosEn,
+		tecnologias: d.tecnologias,
+	};
+	if (fila.fin && fila.fin < fila.inicio) {
+		throw new ActionError({ code: "BAD_REQUEST", message: "La fecha de fin es anterior a la de inicio." });
+	}
+	return fila;
+}
 
 /** Convierte lo validado del formulario en una fila para la tabla. */
 function aFila(datos: CamposProyecto) {
@@ -103,8 +163,12 @@ function aFila(datos: CamposProyecto) {
 		slug,
 		resumen: datos.resumen,
 		contenido: datos.contenido ?? "",
+		resumenEn: datos.resumenEn || null,
+		contenidoEn: datos.contenidoEn || null,
+		logrosEn: datos.logrosEn,
 		fecha: new Date(datos.fecha),
 		tecnologias: datos.tecnologias,
+		logros: datos.logros,
 		repo: datos.repo ?? null,
 		demo: datos.demo ?? null,
 		destacado: datos.destacado,
@@ -120,6 +184,24 @@ async function procesarPortada(archivo: File | undefined, slug: string) {
 	} catch {
 		throw new ActionError({ code: "BAD_REQUEST", message: "No se pudo leer la imagen. ¿Es un archivo de imagen válido?" });
 	}
+}
+
+/** Máximo de imágenes en la galería de un proyecto. */
+const MAX_GALERIA = 12;
+
+/** Guarda las imágenes nuevas de la galería (las vacías se ignoran). Si una falla, borra las ya guardadas. */
+async function procesarGaleria(archivos: File[], slug: string) {
+	const guardadas: string[] = [];
+	for (const archivo of archivos) {
+		if (archivo.size === 0) continue; // input "multiple" sin archivos elegidos
+		try {
+			guardadas.push(await guardarPortada(archivo, `${slug}-galeria`));
+		} catch {
+			await Promise.all(guardadas.map(borrarPortada));
+			throw new ActionError({ code: "BAD_REQUEST", message: `No se pudo leer "${archivo.name}". ¿Es un archivo de imagen válido?` });
+		}
+	}
+	return guardadas;
 }
 
 /** Postgres responde con el código 23505 cuando se repite un valor UNIQUE (el slug). */
@@ -141,17 +223,22 @@ export const server = {
 		handler: async (datos, context) => {
 			await exigirLogin(context);
 			const fila = aFila(datos);
+			if (datos.galeria.filter((f) => f.size > 0).length > MAX_GALERIA) {
+				throw new ActionError({ code: "BAD_REQUEST", message: `La galería admite hasta ${MAX_GALERIA} imágenes.` });
+			}
 			const portada = await procesarPortada(datos.portada, fila.slug);
+			const galeria = await procesarGaleria(datos.galeria, fila.slug);
 
 			try {
 				// INSERT ... RETURNING id: Postgres nos devuelve el id generado
 				const [nuevo] = await db
 					.insert(proyectos)
-					.values({ ...fila, portada })
+					.values({ ...fila, portada, galeria })
 					.returning({ id: proyectos.id });
 				return { id: nuevo.id };
 			} catch (error) {
-				await borrarPortada(portada); // no dejamos imágenes huérfanas
+				// no dejamos imágenes huérfanas
+				await Promise.all([portada, ...galeria].map(borrarPortada));
 				if (esSlugRepetido(error)) throw errorSlugRepetido();
 				throw error;
 			}
@@ -174,19 +261,35 @@ export const server = {
 			// ¿Qué portada queda? la nueva > ninguna (si marcaste "quitar") > la que había
 			const portada = nueva ?? (datos.quitarPortada ? null : actual.portada);
 
+			// Galería: en el orden elegido (solo URLs que de verdad son de este proyecto;
+			// si alguna faltara en el orden, va al final), menos las marcadas para quitar,
+			// y las nuevas al final.
+			const ordenadas = [
+				...datos.ordenGaleria.filter((url, i, todas) => actual.galeria.includes(url) && todas.indexOf(url) === i),
+				...actual.galeria.filter((url) => !datos.ordenGaleria.includes(url)),
+			];
+			const conservadas = ordenadas.filter((url) => !datos.quitarGaleria.includes(url));
+			if (conservadas.length + datos.galeria.filter((f) => f.size > 0).length > MAX_GALERIA) {
+				await borrarPortada(nueva);
+				throw new ActionError({ code: "BAD_REQUEST", message: `La galería admite hasta ${MAX_GALERIA} imágenes.` });
+			}
+			const nuevasGaleria = await procesarGaleria(datos.galeria, fila.slug);
+			const galeria = [...conservadas, ...nuevasGaleria];
+
 			try {
 				await db
 					.update(proyectos)
-					.set({ ...fila, portada })
+					.set({ ...fila, portada, galeria })
 					.where(eq(proyectos.id, datos.id));
 			} catch (error) {
-				await borrarPortada(nueva);
+				await Promise.all([nueva, ...nuevasGaleria].map(borrarPortada));
 				if (esSlugRepetido(error)) throw errorSlugRepetido();
 				throw error;
 			}
 
-			// Solo borramos la imagen vieja cuando el UPDATE ya salió bien
+			// Solo borramos las imágenes viejas cuando el UPDATE ya salió bien
 			if (portada !== actual.portada) await borrarPortada(actual.portada);
+			await Promise.all(actual.galeria.filter((url) => !galeria.includes(url)).map(borrarPortada));
 			return { id: datos.id };
 		},
 	}),
@@ -200,10 +303,100 @@ export const server = {
 			const [borrado] = await db
 				.delete(proyectos)
 				.where(eq(proyectos.id, id))
-				.returning({ titulo: proyectos.titulo, portada: proyectos.portada });
+				.returning({ titulo: proyectos.titulo, portada: proyectos.portada, galeria: proyectos.galeria });
 			if (!borrado) throw new ActionError({ code: "NOT_FOUND", message: "El proyecto ya no existe." });
-			await borrarPortada(borrado.portada);
+			await Promise.all([borrado.portada, ...borrado.galeria].map(borrarPortada));
 			return { titulo: borrado.titulo };
+		},
+	}),
+
+	crearExperiencia: defineAction({
+		accept: "form",
+		input: camposExperiencia,
+		handler: async (datos, context) => {
+			await exigirLogin(context);
+			const fila = aFilaExperiencia(datos);
+			const logo = await procesarPortada(datos.logo, slugificar(fila.empresa) || "empresa");
+			const [nueva] = await db.insert(experiencia).values({ ...fila, logo }).returning({ id: experiencia.id });
+			return { id: nueva.id };
+		},
+	}),
+
+	actualizarExperiencia: defineAction({
+		accept: "form",
+		input: camposExperiencia.extend({ id: z.number().int() }),
+		handler: async (datos, context) => {
+			await exigirLogin(context);
+			const [actual] = await db.select().from(experiencia).where(eq(experiencia.id, datos.id));
+			if (!actual) throw new ActionError({ code: "NOT_FOUND", message: "Ese trabajo ya no existe." });
+
+			const fila = aFilaExperiencia(datos);
+			const nuevo = await procesarPortada(datos.logo, slugificar(fila.empresa) || "empresa");
+			const logo = nuevo ?? (datos.quitarLogo ? null : actual.logo);
+			await db.update(experiencia).set({ ...fila, logo }).where(eq(experiencia.id, datos.id));
+			if (logo !== actual.logo) await borrarPortada(actual.logo);
+			return { id: datos.id };
+		},
+	}),
+
+	eliminarExperiencia: defineAction({
+		accept: "form",
+		input: z.object({ id: z.number().int() }),
+		handler: async ({ id }, context) => {
+			await exigirLogin(context);
+			const [borrado] = await db.delete(experiencia).where(eq(experiencia.id, id)).returning({ logo: experiencia.logo });
+			if (!borrado) throw new ActionError({ code: "NOT_FOUND", message: "Ese trabajo ya no existe." });
+			await borrarPortada(borrado.logo);
+			return { ok: true };
+		},
+	}),
+
+	guardarPerfil: defineAction({
+		accept: "form",
+		input: z.object({
+			nombre: z.string({ error: "El nombre es obligatorio" }).trim().min(1, "El nombre es obligatorio").max(80),
+			rol: z.string({ error: "El rol es obligatorio" }).trim().min(1, "El rol es obligatorio").max(80),
+			frase: z.string({ error: "La frase es obligatoria" }).trim().min(1, "La frase es obligatoria").max(160, "Máximo 160 caracteres"),
+			bio: z.string({ error: "Escribe algo sobre ti" }).trim().min(1, "Escribe algo sobre ti"),
+			rolEn: textoEn(80),
+			fraseEn: textoEn(160),
+			bioEn: textoEn(),
+			stack: lista(","),
+			hobbies: lista(","),
+			hobbiesEn: lista(","),
+			email: z.email({ error: "Correo no válido" }).max(160).optional(),
+			github: urlOpcional,
+			linkedin: urlOpcional,
+			// Número de WhatsApp: "+51 915353137" (con código de país, espacios opcionales)
+			whatsapp: z
+				.string()
+				.trim()
+				.regex(/^\+?[0-9][0-9\s()-]{6,24}$/, "Número no válido (ej. +51 915353137)")
+				.optional(),
+			disponible: z.boolean(),
+			foto: imagenOpcional,
+			quitarFoto: z.boolean(),
+		}),
+		handler: async ({ foto: archivo, quitarFoto, ...datos }, context) => {
+			await exigirLogin(context);
+			const [actual] = await db.select().from(perfil).where(eq(perfil.id, 1));
+			const nueva = await procesarPortada(archivo, "foto");
+			const foto = nueva ?? (quitarFoto ? null : (actual?.foto ?? null));
+			const fila = {
+				...datos,
+				email: datos.email ?? null,
+				github: datos.github ?? null,
+				linkedin: datos.linkedin ?? null,
+				whatsapp: datos.whatsapp ?? null,
+				rolEn: datos.rolEn || null,
+				fraseEn: datos.fraseEn || null,
+				bioEn: datos.bioEn || null,
+				foto,
+			};
+			// "upsert": INSERT si no existe la fila 1, UPDATE si ya existe
+			await db.insert(perfil).values({ id: 1, ...fila }).onConflictDoUpdate({ target: perfil.id, set: fila });
+			if (actual?.foto && actual.foto !== foto) await borrarPortada(actual.foto);
+			return { ok: true };
 		},
 	}),
 

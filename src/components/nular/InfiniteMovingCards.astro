@@ -1,0 +1,111 @@
+---
+/**
+ * InfiniteMovingCards — de nularUI (https://astro.nularui.dev/components/infinite-moving-cards/).
+ * Una marquesina infinita: la pista se renderiza dos veces en el servidor (la segunda
+ * oculta para lectores de pantalla) y se desplaza con un solo keyframe CSS, con los
+ * bordes difuminados. Cero JavaScript.
+ *
+ * Adaptado para este portfolio: en vez de tarjetas de testimonios (quote/name/title)
+ * muestra tecnologías con su logo (<Tag />). Se mantienen direction, speed y pauseOnHover.
+ */
+import Tag from "../Tag.astro";
+
+interface Props {
+  /** Tecnologías a mostrar (nombres del catálogo, ej. "PHP"). */
+  items: string[];
+  /** Scroll direction. */
+  direction?: 'left' | 'right';
+  /** Scroll speed. */
+  speed?: 'fast' | 'normal' | 'slow';
+  /** Pause the marquee while hovered. */
+  pauseOnHover?: boolean;
+  /** Additional classes for the root element. */
+  class?: string;
+}
+
+const {
+  items,
+  direction = 'left',
+  speed = 'normal',
+  pauseOnHover = true,
+  class: className,
+} = Astro.props;
+
+const DURATIONS = { fast: '20s', normal: '40s', slow: '80s' };
+const style = `--imc-duration: ${DURATIONS[speed]}; --imc-direction: ${
+  direction === 'left' ? 'normal' : 'reverse'
+};`;
+---
+
+<div
+  class:list={['scroller', { 'pause-on-hover': pauseOnHover }, className]}
+  style={style}
+>
+  <ul>
+    {
+      [false, true].map((duplicate) =>
+        items.map((item) => (
+          <li aria-hidden={duplicate || undefined}>
+            <Tag texto={item} conNombre />
+          </li>
+        )),
+      )
+    }
+  </ul>
+</div>
+
+<style>
+  .scroller {
+    position: relative;
+    z-index: 20;
+    max-width: 80rem;
+    overflow: hidden;
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      white 20%,
+      white 80%,
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      white 20%,
+      white 80%,
+      transparent
+    );
+  }
+
+  ul {
+    display: flex;
+    width: max-content;
+    min-width: 100%;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    margin: 0;
+    padding: 0.5rem 0;
+    list-style: none;
+    animation: nui-imc-scroll var(--imc-duration) linear infinite;
+    animation-direction: var(--imc-direction);
+  }
+
+  .pause-on-hover ul:hover {
+    animation-play-state: paused;
+  }
+
+  li {
+    flex-shrink: 0;
+  }
+
+  @keyframes nui-imc-scroll {
+    to {
+      transform: translateX(calc(-50% - 0.5rem));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    ul {
+      animation: none;
+    }
+  }
+</style>

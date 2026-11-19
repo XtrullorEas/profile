@@ -1,0 +1,176 @@
+---
+/**
+ * ContainerScrollAnimation — de nularUI
+ * (https://astro.nularui.dev/components/container-scroll-animation/).
+ * Un marco tipo tablet que empieza inclinado hacia atrás y se endereza a medida
+ * que haces scroll. Un custom element mide el progreso del scroll con la utilidad
+ * compartida `scroll-progress` y lo escribe como variables CSS. Sin librerías.
+ *
+ * Adaptado para la captura de un proyecto:
+ *   - el progreso va de "la captura asoma por abajo" a "la captura llega al centro
+ *     de la pantalla" (el original empezaba cuando la sección tocaba el borde de
+ *     arriba: la captura entraba quieta y se movía cuando ya te ibas)
+ *   - sin alto fijo (60/80rem) ni recorte: el marco toma la proporción 16:9 de la
+ *     captura y la imagen se ve entera (contain en vez de cover)
+ *   - sin el título de arriba (la página del proyecto ya tiene el suyo)
+ *   - en el móvil escala 0.95 → 1 (el original 0.7 → 0.9 la dejaba chica)
+ *   - sombra más corta (la original manchaba el texto de abajo en tema claro)
+ */
+interface Props {
+  /** Additional classes for the outer scroll section. */
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<nular-container-scroll-animation class:list={['scroll-container', className]}>
+  <div class="perspective-wrapper">
+    <div class="card">
+      <div class="card-inner">
+        <slot />
+      </div>
+    </div>
+  </div>
+</nular-container-scroll-animation>
+
+<style>
+  .scroll-container {
+    display: block;
+    position: relative;
+  }
+
+  .perspective-wrapper {
+    position: relative;
+    width: 100%;
+    padding: 1.5rem 0;
+    perspective: 1000px;
+  }
+
+  .card {
+    width: 100%;
+    border: 4px solid #6c6c6c;
+    padding: 0.375rem;
+    background: #222222;
+    border-radius: 24px;
+    /* Original: 6 capas hasta 233px de distancia. En tema claro formaban una
+       "niebla" gris sobre el texto de abajo: dejamos las 3 más cercanas */
+    box-shadow:
+      0 0 #0000004d,
+      0 9px 20px #0000004a,
+      0 37px 37px #00000042;
+    transform: rotateX(var(--nular-rotate, 20deg)) scale(var(--nular-scale, 1.05));
+    transform-origin: center top;
+    will-change: transform;
+  }
+
+  @media (min-width: 768px) {
+    .card {
+      padding: 0.75rem;
+      border-radius: 30px;
+    }
+  }
+
+  .card-inner {
+    width: 100%;
+    /* La proporción de una captura de pantalla (el original tenía alto fijo) */
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 1rem;
+    background: #f4f4f5;
+  }
+
+  .card-inner :global(img),
+  .card-inner :global(video) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* contain: la captura ENTERA (el original usaba cover, que recorta) */
+    object-fit: contain;
+    border-radius: inherit;
+  }
+
+  :global(html.dark) .card-inner,
+  :global(html[data-theme='dark']) .card-inner {
+    background: #18181b;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(html:not(.light):not([data-theme='light'])) .card-inner {
+      background: #18181b;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card {
+      transform: none;
+    }
+  }
+</style>
+
+<script>
+  import {
+    trackScrollProgress,
+    type ScrollProgressHandle,
+  } from '../../lib/nular/scroll-progress';
+
+  class NularContainerScrollAnimation extends HTMLElement {
+    #abort: AbortController | null = null;
+    #progress: ScrollProgressHandle | null = null;
+    #isMobile = false;
+
+    connectedCallback() {
+      const reduceMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)',
+      ).matches;
+
+      // prefers-reduced-motion: keep the flat, settled state from the
+      // stylesheet and never attach a scroll listener.
+      if (reduceMotion) return;
+
+      this.#abort = new AbortController();
+      const { signal } = this.#abort;
+
+      const mobileQuery = window.matchMedia('(max-width: 768px)');
+      this.#isMobile = mobileQuery.matches;
+      mobileQuery.addEventListener(
+        'change',
+        (event) => {
+          this.#isMobile = event.matches;
+          this.#progress?.update();
+        },
+        { signal },
+      );
+
+      // Adaptación: 0 cuando el borde de arriba de la captura asoma por abajo de la
+      // pantalla ([0, 1]); 1 cuando el centro de la captura llega al centro ([0.5, 0.5]).
+      // Así se endereza MIENTRAS la miras entrar.
+      this.#progress = trackScrollProgress(this, {
+        start: [0, 1],
+        end: [0.5, 0.5],
+        onChange: (progress) => {
+          const rotate = 20 - progress * 20;
+          const [scaleStart, scaleEnd] = this.#isMobile ? [0.95, 1] : [1.05, 1];
+          const scale = scaleStart + progress * (scaleEnd - scaleStart);
+
+          this.style.setProperty('--nular-rotate', `${rotate.toFixed(2)}deg`);
+          this.style.setProperty('--nular-scale', scale.toFixed(3));
+        },
+      });
+    }
+
+    disconnectedCallback() {
+      this.#abort?.abort();
+      this.#abort = null;
+      this.#progress?.destroy();
+      this.#progress = null;
+    }
+  }
+
+  if (!customElements.get('nular-container-scroll-animation')) {
+    customElements.define(
+      'nular-container-scroll-animation',
+      NularContainerScrollAnimation,
+    );
+  }
+</script>
