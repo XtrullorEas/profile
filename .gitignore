@@ -24,7 +24,8 @@ pnpm-debug.log*
 .idea/
 
 # imágenes subidas desde el admin (viven en el servidor, no en git)
-uploads/
+# "/" = solo la carpeta de la raíz (src/pages/uploads/ sí va a git)
+/uploads/
 
 # datos de ejecución (sesiones del admin)
-data/
+/data/
