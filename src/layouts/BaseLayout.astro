@@ -79,6 +79,17 @@ const canonica = new URL(pathname, Astro.site);
 		<meta name="twitter:card" content="summary_large_image" />
 		<link rel="alternate" hreflang="es" href={new URL(alternativas.es, Astro.site)} />
 		<link rel="alternate" hreflang="en" href={new URL(alternativas.en, Astro.site)} />
+		<!--
+			Analítica con Umami (stats.moloeas.com): sin cookies, no necesita banner.
+			defer: no frena la carga. data-domains: solo cuenta visitas en el dominio real,
+			así tus pruebas en localhost no ensucian las estadísticas.
+		-->
+		<script
+			is:inline
+			defer
+			src="https://stats.moloeas.com/s.js"
+			data-website-id="4b201f2c-499b-4257-aa18-132d30ae622f"
+			data-domains="portfolio.moloeas.com"></script>
 	</head>
 	<!-- min-h-screen + flex-col: el footer queda abajo aunque haya poco contenido -->
 	<!-- overflow-x-clip: nada genera scroll horizontal en el móvil -->
